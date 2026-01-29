@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <!--
+      Dev helper for cleartext HTTP.
+      If you're running the backend on your computer, prefer:
+      - Android emulator: 10.0.2.2
+      - Real device: your computer's LAN IP (e.g. 192.168.1.100)
+    -->
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="true">10.0.2.2</domain>
+        <domain includeSubdomains="true">localhost</domain>
+    </domain-config>
+</network-security-config>
+

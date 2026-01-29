@@ -1,0 +1,52 @@
+### Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+### Logs and caches
+*.log
+logs/
+*.tmp
+.cache/
+metro-cache/
+tmp/
+
+### React Native build artifacts
+build/
+dist/
+*.bundle
+*.map
+android/.gradle/
+android/.idea/
+android/app/.cxx/
+android/app/build/
+android/build/
+android/app/src/main/assets/index.android.bundle
+ios/build/
+ios/Pods/
+**/DerivedData/
+
+### Environment files
+.env
+.env.*
+.env.local
+
+### IDE and OS
+.DS_Store
+.idea/
+.vscode/
+*.swp
+
+### Gradle and keystore
+*.iml
+*.keystore
+*.jks
+keystore.properties
+local.properties
+
+### Reports and coverage
+coverage/
+jest-coverage/
+reports/
