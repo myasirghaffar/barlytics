@@ -60,6 +60,15 @@ export const applyTurn = (game, { score, finishedOnDouble }) => {
     };
   }
 
+  if (!game.players || game.players.length === 0) {
+    return {
+      game,
+      error: "No players in game.",
+      bust: false,
+      finished: false,
+    };
+  }
+
   const currentIndex = game.currentPlayerIndex ?? 0;
   const currentPlayer = game.players[currentIndex];
   if (!currentPlayer) {
@@ -71,32 +80,30 @@ export const applyTurn = (game, { score, finishedOnDouble }) => {
     };
   }
 
-  const previousRemaining = currentPlayer.remainingScore;
+  const previousRemaining =
+    typeof currentPlayer.remainingScore === "number"
+      ? currentPlayer.remainingScore
+      : currentPlayer.startingScore;
   const tentativeRemaining = previousRemaining - score;
 
   let wasBust = false;
   let finished = false;
   let newRemaining = previousRemaining;
 
-  // Bust rules
+  // Bust rules (order matters)
   if (tentativeRemaining < 0) {
-    // Score exceeds remaining → bust
-    wasBust = true;
+    wasBust = true; // Score exceeds remaining
   } else if (tentativeRemaining === 1 && game.doubleOut) {
-    // Cannot be left on 1 when double-out is enabled
-    wasBust = true;
+    wasBust = true; // Cannot be left on 1 with double-out
   } else if (tentativeRemaining === 0) {
-    // Attempting to finish the game
+    // Checkout attempt
     if (game.doubleOut && !finishedOnDouble) {
-      // Must finish on a double if double-out is enabled
-      wasBust = true;
+      wasBust = true; // Must confirm double-out finish
     } else {
-      // Valid finish
       finished = true;
       newRemaining = 0;
     }
   } else {
-    // Regular valid scoring turn, update remaining
     newRemaining = tentativeRemaining;
   }
 
@@ -165,14 +172,14 @@ export const applyTurn = (game, { score, finishedOnDouble }) => {
  * }}
  */
 export const undoLastTurn = (game) => {
-  if (!game.history.length) {
+  if (!game || !game.history || game.history.length === 0) {
     return { game, error: "No turns to undo." };
   }
 
   const lastTurn = game.history[game.history.length - 1];
   const remainingHistory = game.history.slice(0, -1);
 
-  const players = game.players.map((p) =>
+  const players = (game.players || []).map((p) =>
     p.id === lastTurn.playerId
       ? {
           ...clonePlayer(p),
@@ -181,16 +188,14 @@ export const undoLastTurn = (game) => {
       : clonePlayer(p)
   );
 
-  // After undoing, the "current player" becomes the one who took the undone turn.
   const currentPlayerIndex = players.findIndex(
     (p) => p.id === lastTurn.playerId
   );
 
-  let status = game.status;
+  let status = game.status || "inProgress";
   let winnerPlayerId = game.winnerPlayerId;
 
   if (game.status === "finished") {
-    // If the last turn had finished the game, undoing it should un-finish it.
     status = "inProgress";
     winnerPlayerId = null;
   }
@@ -198,7 +203,7 @@ export const undoLastTurn = (game) => {
   const nextGame = {
     ...game,
     players,
-    currentPlayerIndex: currentPlayerIndex === -1 ? 0 : currentPlayerIndex,
+    currentPlayerIndex: currentPlayerIndex >= 0 ? currentPlayerIndex : 0,
     status,
     winnerPlayerId,
     history: remainingHistory,

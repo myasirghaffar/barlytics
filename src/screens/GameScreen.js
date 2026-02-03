@@ -5,6 +5,8 @@ import {
   StyleSheet,
   TouchableOpacity,
   ScrollView,
+  Modal,
+  Pressable,
 } from "react-native";
 import { colors } from "../styles/globalStyles";
 import { loadGame, saveGame } from "../storage/localGameStore";
@@ -90,21 +92,41 @@ function GameScreen({ navigation }) {
 
   const handleNumberPress = (num) => {
     const newScore = scoreInput + num.toString();
-    if (parseInt(newScore, 10) <= 180) {
+    const parsed = parseInt(newScore, 10);
+    if (newScore.length <= 3) {
       setScoreInput(newScore);
-      setBustMessage("");
+      if (parsed <= 180) setBustMessage("");
+      // When score changes, reset double-out checkbox if it's no longer a checkout
+      const remaining =
+        game?.players?.[game?.currentPlayerIndex]?.remainingScore ?? 0;
+      if (parsed !== remaining || !game?.doubleOut || parsed <= 0) {
+        setFinishedOnDouble(false);
+      }
     }
   };
 
   const handleBackspace = () => {
-    setScoreInput((prev) => prev.slice(0, -1));
+    const nextInput = scoreInput.slice(0, -1);
+    setScoreInput(nextInput);
     setBustMessage("");
+    const parsed = parseInt(nextInput, 10);
+    const remaining =
+      game?.players?.[game?.currentPlayerIndex]?.remainingScore ?? 0;
+    if (Number.isNaN(parsed) || parsed !== remaining || !game?.doubleOut) {
+      setFinishedOnDouble(false);
+    }
   };
 
   const handleSubmitScore = async () => {
     if (!game) return;
+    if (game.status === "finished") return;
+
     const parsed = parseInt(scoreInput, 10);
     if (Number.isNaN(parsed) || scoreInput === "") {
+      return;
+    }
+    if (parsed > 180) {
+      setBustMessage("");
       return;
     }
 
@@ -124,24 +146,24 @@ function GameScreen({ navigation }) {
     }
 
     if (bust) {
-      // Determine bust message
+      // Determine bust message (message only; "BUST!" shown as title in UI)
       const currentPlayer = game.players[game.currentPlayerIndex];
       const remaining = currentPlayer?.remainingScore || 0;
       const tentativeRemaining = remaining - parsed;
 
-      let message = "BUST! ";
+      let message = "";
       if (tentativeRemaining < 0) {
-        message += "Score went below zero";
+        message = "Score went below zero";
       } else if (tentativeRemaining === 1 && game.doubleOut) {
-        message += "Can't finish on 1 with double-out";
+        message = "Can't finish on 1 with double-out";
       } else if (
         tentativeRemaining === 0 &&
         game.doubleOut &&
         !finishedOnDouble
       ) {
-        message += "Must finish on a double";
+        message = "Must finish on a double";
       } else {
-        message += "Invalid score";
+        message = "Invalid score";
       }
 
       setBustMessage(message);
@@ -173,8 +195,25 @@ function GameScreen({ navigation }) {
   const currentPlayer =
     game.players[game.currentPlayerIndex] ?? game.players[0];
   const scoreValue = scoreInput || "0";
-  const isValidScore = scoreInput && parseInt(scoreInput, 10) <= 180;
-  const canSubmit = isValidScore && scoreInput !== "";
+  const parsedScore = parseInt(scoreValue, 10);
+  const isScoreOver180 =
+    scoreInput !== "" && !Number.isNaN(parsedScore) && parsedScore > 180;
+  const isValidScore =
+    scoreInput !== "" &&
+    !Number.isNaN(parsedScore) &&
+    parsedScore >= 0 &&
+    parsedScore <= 180;
+
+  const remaining = currentPlayer?.remainingScore ?? 0;
+  const isCheckoutWithDoubleOut =
+    game.doubleOut && parsedScore > 0 && remaining === parsedScore;
+
+  const canSubmit =
+    isValidScore &&
+    (!isCheckoutWithDoubleOut || finishedOnDouble) &&
+    game.status !== "finished";
+
+  const showScoreError = isScoreOver180;
 
   return (
     <View style={styles.container}>
@@ -204,16 +243,35 @@ function GameScreen({ navigation }) {
                           : styles.playerBadgeInactive,
                       ]}
                     >
-                      <Text style={styles.playerBadgeText}>{index + 1}</Text>
+                      <Text
+                        style={[
+                          styles.playerBadgeText,
+                          !isCurrent && styles.playerBadgeTextInactive,
+                        ]}
+                      >
+                        {index + 1}
+                      </Text>
                     </View>
                     <View style={styles.playerInfo}>
-                      <Text style={styles.playerName}>{player.name}</Text>
+                      <Text
+                        style={[
+                          styles.playerName,
+                          !isCurrent && styles.playerNameInactive,
+                        ]}
+                      >
+                        {player.name}
+                      </Text>
                       {isCurrent && (
                         <Text style={styles.yourTurn}>Your Turn</Text>
                       )}
                     </View>
                   </View>
-                  <Text style={styles.playerScore}>
+                  <Text
+                    style={[
+                      styles.playerScore,
+                      !isCurrent && styles.playerScoreInactive,
+                    ]}
+                  >
                     {player.remainingScore}
                   </Text>
                 </View>
@@ -228,26 +286,25 @@ function GameScreen({ navigation }) {
           <View
             style={[
               styles.scoreDisplay,
-              bustMessage && styles.scoreDisplayError,
+              scoreInput !== "" &&
+                !showScoreError &&
+                !bustMessage &&
+                styles.scoreDisplayActive,
+              (showScoreError || bustMessage) && styles.scoreDisplayError,
             ]}
           >
             <Text
               style={[
                 styles.scoreDisplayText,
-                bustMessage && styles.scoreDisplayTextError,
+                (showScoreError || bustMessage) && styles.scoreDisplayTextError,
               ]}
             >
               {scoreValue}
             </Text>
           </View>
 
-          {bustMessage && (
-            <View style={styles.bustAlert}>
-              <View style={styles.bustIcon}>
-                <Text style={styles.bustIconText}>!</Text>
-              </View>
-              <Text style={styles.bustText}>{bustMessage}</Text>
-            </View>
+          {showScoreError && (
+            <Text style={styles.scoreErrorText}>Maximum score is 180</Text>
           )}
 
           {game.doubleOut &&
@@ -287,6 +344,29 @@ function GameScreen({ navigation }) {
           </Text>
         </View>
       </ScrollView>
+
+      {/* BUST! Popup Modal */}
+      <Modal
+        visible={!!(bustMessage && !showScoreError)}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setBustMessage("")}
+      >
+        <Pressable
+          style={styles.bustModalOverlay}
+          onPress={() => setBustMessage("")}
+        >
+          <View style={styles.bustModalBox}>
+            <View style={styles.bustModalIcon}>
+              <Text style={styles.bustModalIconText}>!</Text>
+            </View>
+            <View style={styles.bustModalContent}>
+              <Text style={styles.bustModalTitle}>BUST!</Text>
+              <Text style={styles.bustModalMessage}>{bustMessage}</Text>
+            </View>
+          </View>
+        </Pressable>
+      </Modal>
     </View>
   );
 }
@@ -294,6 +374,7 @@ function GameScreen({ navigation }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    // backgroundColor: "#1F3E3B",
     backgroundColor: colors.background,
   },
   scrollView: {
@@ -306,22 +387,27 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: colors.background,
+    backgroundColor: "#1F3E3B",
   },
   loadingText: {
-    color: colors.textSecondary,
+    color: colors.textMuted,
   },
   playersContainer: {
     gap: 12,
     marginBottom: 24,
   },
   playerCard: {
-    borderRadius: 16,
-    backgroundColor: "#224734",
+    borderRadius: 14,
+    backgroundColor: "#3B4E48",
+    borderWidth: 1,
+    borderColor: "#FFFFFF33",
     padding: 16,
   },
   playerCardActive: {
-    backgroundColor: "#2D5C3E",
+    // backgroundColor: "#007E5B",
+    backgroundColor: colors.cardActive,
+    borderWidth: 1,
+    borderColor: "#00BC7D",
   },
   playerCardContent: {
     flexDirection: "row",
@@ -341,15 +427,18 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   playerBadgeActive: {
-    backgroundColor: "#009966",
+    backgroundColor: "#00BC7D",
   },
   playerBadgeInactive: {
-    backgroundColor: colors.card,
+    backgroundColor: "rgba(255,255,255,0.2)",
   },
   playerBadgeText: {
     color: colors.textPrimary,
     fontSize: 16,
     fontWeight: "bold",
+  },
+  playerBadgeTextInactive: {
+    color: colors.textMuted,
   },
   playerInfo: {
     gap: 4,
@@ -359,33 +448,48 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: colors.textPrimary,
   },
+  playerNameInactive: {
+    color: colors.textMuted,
+  },
   yourTurn: {
     fontSize: 13,
-    color: colors.textSecondary,
+    color: "#00BC7D",
+    fontWeight: "600",
   },
   playerScore: {
-    fontSize: 28,
+    fontSize: 36,
     fontWeight: "bold",
     color: colors.textPrimary,
+  },
+  playerScoreInactive: {
+    color: colors.textMuted,
   },
   scoreSection: {
     marginBottom: 24,
   },
   scoreLabel: {
     fontSize: 16,
-    color: colors.textSecondary,
+    color: colors.textPrimary,
     marginBottom: 12,
   },
   scoreDisplay: {
     height: 100,
-    borderRadius: 16,
-    backgroundColor: colors.scoreInputBg,
+    borderRadius: 14,
+    backgroundColor: "#3B4E48",
+    borderWidth: 1,
+    borderColor: "#FFFFFF33",
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 12,
+    marginBottom: 8,
+  },
+  scoreDisplayActive: {
+    backgroundColor: colors.cardActive,
+    borderWidth: 1,
+    borderColor: "#00BC7D",
   },
   scoreDisplayError: {
-    backgroundColor: colors.scoreInputError,
+    backgroundColor: "#B732254D",
+    borderColor: "#B73225",
   },
   scoreDisplayText: {
     fontSize: 56,
@@ -395,33 +499,53 @@ const styles = StyleSheet.create({
   scoreDisplayTextError: {
     color: colors.textPrimary,
   },
-  bustAlert: {
+  scoreErrorText: {
+    fontSize: 14,
+    color: "#B73225",
+    marginBottom: 12,
+    textAlign: "center",
+  },
+  bustModalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 24,
+  },
+  bustModalBox: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: colors.danger,
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-    gap: 12,
+    backgroundColor: "#E53935",
+    borderRadius: 14,
+    padding: 20,
+    width: "100%",
+    maxWidth: 400,
+    gap: 16,
   },
-  bustIcon: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: colors.textPrimary,
+  bustModalIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "rgba(255,255,255,0.25)",
     alignItems: "center",
     justifyContent: "center",
   },
-  bustIconText: {
+  bustModalIconText: {
     color: colors.textPrimary,
-    fontSize: 14,
+    fontSize: 20,
     fontWeight: "bold",
   },
-  bustText: {
+  bustModalContent: {
     flex: 1,
-    fontSize: 16,
+  },
+  bustModalTitle: {
+    fontSize: 20,
     fontWeight: "bold",
+    color: colors.textPrimary,
+    marginBottom: 4,
+  },
+  bustModalMessage: {
+    fontSize: 15,
     color: colors.textPrimary,
   },
   doubleToggle: {
@@ -447,6 +571,10 @@ const styles = StyleSheet.create({
   },
   keypadContainer: {
     marginTop: 8,
+    paddingHorizontal: 32,
+    alignSelf: "center",
+    width: "100%",
+    maxWidth: 320,
   },
   hintText: {
     textAlign: "center",
@@ -472,7 +600,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     backgroundColor: "transparent",
     borderWidth: 1,
-    borderColor: colors.borderSoft,
+    borderColor: "rgba(255,255,255,0.2)",
     gap: 6,
   },
   undoButtonDisabled: {
@@ -480,11 +608,11 @@ const styles = StyleSheet.create({
   },
   undoIconHeader: {
     fontSize: 18,
-    color: colors.textSecondary,
+    color: colors.textMuted,
   },
   undoTextHeader: {
     fontSize: 14,
-    color: colors.textSecondary,
+    color: colors.textMuted,
     fontWeight: "500",
   },
 });

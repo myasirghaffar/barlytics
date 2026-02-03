@@ -64,8 +64,10 @@ const styles = StyleSheet.create({
     flex: 1,
     aspectRatio: 1,
     maxWidth: 80,
-    borderRadius: 12,
-    backgroundColor: colors.keypadBg,
+    borderRadius: 14,
+    backgroundColor: "#3B4E48",
+    borderWidth: 1,
+    borderColor: "#00BC7D",
     alignItems: "center",
     justifyContent: "center",
   },
@@ -75,10 +77,14 @@ const styles = StyleSheet.create({
     fontWeight: "500",
   },
   submitKey: {
-    backgroundColor: colors.keypadBg,
+    backgroundColor: "#3B4E48",
+    borderWidth: 1,
+    borderColor: "#00BC7D",
   },
   submitKeyActive: {
-    backgroundColor: colors.success,
+    backgroundColor: "#00BC7D",
+    borderWidth: 0,
+    borderColor: "transparent",
   },
   submitKeyText: {
     color: colors.textPrimary,
@@ -86,15 +92,15 @@ const styles = StyleSheet.create({
   backspaceIcon: {
     width: 24,
     height: 24,
-    borderRadius: 4,
+    borderRadius: 6,
     borderWidth: 1.5,
-    borderColor: colors.keypadText,
+    borderColor: colors.textMuted,
     alignItems: "center",
     justifyContent: "center",
   },
   backspaceText: {
     fontSize: 14,
-    color: colors.keypadText,
+    color: colors.textMuted,
     fontWeight: "bold",
   },
 });

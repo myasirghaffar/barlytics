@@ -8,6 +8,7 @@ import {
 } from "react-native";
 import { colors } from "../styles/globalStyles";
 import { clearGame, loadGame, saveGame } from "../storage/localGameStore";
+import { TrophyIcon } from "../assets/icons/icons";
 
 function GameSummaryScreen({ navigation }) {
   const [game, setGame] = useState(null);
@@ -72,7 +73,9 @@ function GameSummaryScreen({ navigation }) {
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       {/* Trophy Icon */}
       <View style={styles.trophyContainer}>
-        <Text style={styles.trophyIcon}>🏆</Text>
+        <View style={styles.trophyShadow}>
+          <TrophyIcon width={160} height={160} color="white" />
+        </View>
       </View>
 
       {/* Winner Announcement */}
@@ -124,10 +127,16 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
   },
   trophyContainer: {
-    marginBottom: 24,
+    marginBottom: 8,
+    alignItems: "center",
   },
-  trophyIcon: {
-    fontSize: 80,
+  trophyShadow: {
+    // box-shadow: 0px 25px 50px -12px #D087004D
+    shadowColor: "#D08700",
+    shadowOffset: { width: 0, height: 25 },
+    shadowOpacity: 0.3,
+    shadowRadius: 25,
+    elevation: 12,
   },
   winnerContainer: {
     alignItems: "center",
