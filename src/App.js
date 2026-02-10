@@ -145,18 +145,10 @@ function App() {
             <Stack.Screen
               name="GameSummary"
               component={GameSummaryScreen}
-              options={({ navigation }) => ({
-                header: () => (
-                  <Header
-                    onBack={() => navigation.goBack()}
-                    center={
-                      <Text style={styles.headerTitle}>Game Summary</Text>
-                    }
-                    showBack={true}
-                  />
-                ),
+              options={{
+                headerShown: false,
                 gestureEnabled: false,
-              })}
+              }}
             />
           </Stack.Navigator>
         </NavigationContainer>

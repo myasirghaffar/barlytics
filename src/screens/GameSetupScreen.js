@@ -259,6 +259,7 @@ const styles = StyleSheet.create({
   },
   section: {
     marginBottom: 10,
+    marginTop: 14,
   },
   playersSection: {
     marginBottom: 6,

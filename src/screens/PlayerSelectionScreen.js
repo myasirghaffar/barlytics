@@ -183,6 +183,7 @@ function PlayerSelectionScreen({ navigation }) {
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
       >
         {/* Tonight's Players Section */}
         <View style={styles.tonightCard}>
@@ -379,6 +380,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
+
   scrollView: {
     flex: 1,
   },
@@ -463,6 +465,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: colors.textMuted,
     marginTop: 8,
+    marginLeft: 87,
   },
   registeredSection: {
     marginBottom: 24,
@@ -608,7 +611,7 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   footer: {
-    position: "absolute",
+    position: 'absolute',
     bottom: 0,
     left: 0,
     right: 0,
