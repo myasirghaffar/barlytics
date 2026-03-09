@@ -1,164 +1,77 @@
-# The Oche – Darts Scoring App
+# Barbrain – Bar Inventory Management App
 
-Mobile darts scoring app for quick 301/501 games on a single device. This MVP focuses on pub-friendly scoring, offline-first behaviour, and a clean, readable UI.
+Mobile bar inventory app for quick stock counting, product management, and reports. Offline-first with SQLite, clean UI, and support for multiple areas (stations).
 
 ### Features
 
-- **Game modes**: 301 or 501
-- **Players**: 2–4 players per game (name only)
-- **Rules**:
-  - Optional **Double-Out** toggle
-  - Bust logic (over-scoring, leaving 1 with double-out, invalid finishes)
-  - Exact checkout required, with optional “finished on double” confirmation
-- **Gameplay**:
-  - Simple numeric score entry (0–180)
-  - Automatic turn rotation between players
-  - **Undo last turn** (restores scores and turn order)
-  - Local game state persistence so a game survives app reloads
-- **Summary**:
-  - Clear winner display
-  - Start a brand new game
-  - Rematch with the same players and settings
+- **Areas**: Manage bar areas/stations; tap an area to see its products.
+- **Products**: Add from catalog or create new (name, volume, category, price, image).
+- **Inventory mode**: Adjust bottle fill levels with a slider; track full vs partial bottles.
+- **Purchase prices**: Set and edit purchase price (€) per product.
+- **Reports**: View total bottles, stock value, low stock; export PDF/Excel.
+- **Language**: English (primary) and German; switcher in the header.
 
 ---
 
 ## Project Structure
 
-- **`src/App.js`**: App entry, navigation setup, and initial route resolution based on any saved game.
+- **`src/App.js`**: App entry, splash, navigation container.
 - **`src/screens/`**
-  - `HomeScreen` – Start a new game.
-  - `GameSetupScreen` – Configure 301/501, double-out, legs meta, and add 2–4 players.
-  - `GameScreen` – Main scoring UI with scoreboard, score input, and undo.
-  - `GameSummaryScreen` – Winner + final scores, with options for new game or rematch.
-- **`src/components/`**
-  - `PlayerList` – Simple scrollable list of players.
-  - `ScoreInput` – Numeric score input + “finished on double” toggle.
-  - `TurnIndicator` – Shows current player and remaining score.
-  - `UndoButton` – Reverts the last turn.
-- **`src/logic/`**
-  - `gameEngine.js` – Pure game rules: validation, scoring, bust logic, finish logic, turn rotation, and undo.
-- **`src/storage/`**
-  - `localGameStore.js` – AsyncStorage wrapper for persisting the current game state offline.
-- **`src/types/`**
-  - `Player.js` – Player model / helpers.
-  - `Game.js` – Game model / helpers (designed for future team and competition support).
-
-The code is kept deliberately small and readable, with clear separation between UI, game logic, and persistence.
+  - `AreasScreen` – List of areas, language switcher, search.
+  - `ProductListScreen` – Products in the current area; add from catalog or new.
+  - `AddProductScreen` – Catalog search and “Add new product” entry.
+  - `AddNewProductScreen` – Form to add a product (name, volume, category, price, image).
+  - `InventoryModeScreen` – Count/inventory with bottle fill sliders.
+  - `PurchasePriceScreen` – Edit purchase prices.
+  - `ReportsScreen` – Totals and export.
+- **`src/components/`** – SearchBar, ProductItem, BottleFillSlider, FloatingAddButton, etc.
+- **`src/context/`** – InventoryContext, LanguageContext.
+- **`src/database/`** – SQLite init and product/area operations.
+- **`src/i18n/`** – Translations (en/de).
+- **`src/theme/`** – Colors, spacing, shadows.
 
 ---
 
 ## Requirements
 
 - Node.js **20+**
-- React Native CLI environment for iOS/Android:
-  - Xcode + iOS Simulator for iOS builds (macOS)
-  - Android Studio + Android SDK + an emulator or device for Android
-
-All dependencies are declared in `package.json`.
+- React Native CLI: Xcode + iOS Simulator (macOS), Android Studio + SDK/emulator
 
 ---
 
-## Setup & Installation
-
-From the project root:
+## Setup & Running
 
 ```bash
 npm install
 ```
 
-If you haven’t already set up React Native’s native tooling on this machine, follow the **React Native CLI** setup guide for your platform before continuing.
+**Android:** `npm run android`  
+**iOS:** `cd ios && pod install && cd ..` then `npm run ios`
+
+Metro: `npm start` (in a separate terminal if needed).
 
 ---
 
-## Running the App Locally
+## Building
 
-### Start the Metro bundler
-
-In one terminal:
-
-```bash
-npm start
-```
-
-### Run on Android
-
-With an Android emulator running or a device connected:
-
-```bash
-npm run android
-```
-
-### Run on iOS (macOS only)
-
-With an iOS simulator available:
-
-```bash
-npm run ios
-```
-
-This uses the standard React Native CLI commands under the hood.
+- **Android:** `cd android && ./gradlew assembleDebug` → `app/build/outputs/apk/debug/app-debug.apk`
+- **iOS:** Open `ios/Barbrain.xcworkspace` in Xcode → Product → Archive for release/TestFlight.
 
 ---
 
-## Building an Installable Binary
+## Renaming the project folder (optional)
 
-### Android – Generate an APK (debug)
+The app and npm package are already named **Barbrain**. If your project folder is still `oche-app` and you want the IDE (e.g. Cursor) to show **Barbrain** or **barbrain-app**:
 
-For a quick, installable debug APK:
-
-```bash
-cd android
-./gradlew assembleDebug
-```
-
-The generated APK will be at:
-
-- `android/app/build/outputs/apk/debug/app-debug.apk`
-
-You can install it on a device or emulator with:
-
-```bash
-adb install -r android/app/build/outputs/apk/debug/app-debug.apk
-```
-
-For a signed release APK, follow the standard React Native guide for generating a keystore and configuring `android/app/build.gradle`.
-
-### iOS – Archive / TestFlight
-
-For iOS, use Xcode:
-
-1. Open the workspace:
-   - `ios/LLHAR.xcworkspace`
-2. Choose a device (physical or generic iOS Device).
-3. Use `Product > Archive` to create an archive.
-4. Distribute via TestFlight or Ad Hoc as needed.
-
-These steps follow the usual React Native + Xcode release pipeline.
+1. **Close** this project in Cursor/VS Code.
+2. In Terminal, from the **parent** of the project (e.g. `Documents/React-Native/`), run:
+   ```bash
+   mv oche-app barbrain-app
+   ```
+3. **Reopen** the project by opening the folder `barbrain-app` (File → Open Folder).
+4. Run `npm run android` or `npm run ios` once so generated config (e.g. autolinking) picks up the new path.
 
 ---
 
-## Gameplay Notes
-
-- Scores must be between **0 and 180** per turn.
-- A **bust** occurs when:
-  - The entered score exceeds the remaining score, or
-  - The remaining score would become **1** when **Double-Out** is enabled, or
-  - The player tries to finish on 0 with Double-Out enabled but does **not** confirm a double checkout.
-- The app asks you (via a toggle) to confirm if the winning checkout was on a double whenever Double-Out is turned on and a score would reduce the player to exactly 0.
-- Undo fully restores:
-  - The previous remaining score for the affected player.
-  - The correct current player in the turn order.
-  - Game status and winner (if you undo a winning turn).
-
-All game state is stored locally on the device; there is no backend, login, or network dependency.
-
----
-
-## Future-Proofing
-
-The data models are structured to support:
-
-- **Team mode**: Teams with multiple players and future team-based turn rotation.
-- **Competitions / knockouts**: Games can be associated with higher-level competition or match IDs later without breaking the current MVP.
-
-No team or tournament UI is implemented in this version.
+App name and display: **Barbrain**.  
+Bundle/package identifiers (e.g. `com.oche`) are unchanged for stability.

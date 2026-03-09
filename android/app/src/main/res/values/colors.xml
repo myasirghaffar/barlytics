@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Barbrain primary blue - matches app splash -->
+    <color name="splash_background">#132554</color>
+</resources>
