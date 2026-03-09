@@ -15,6 +15,7 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
+  Alert,
 } from 'react-native';
 import { Icon, Icons } from '../assets/icons';
 import { getBottleImage } from '../assets/images/bottleImages';
@@ -36,6 +37,8 @@ export default function PurchasePriceScreen({ navigation }) {
   const [filtered, setFiltered] = useState([]);
   const [editModal, setEditModal] = useState(null);
   const [priceInput, setPriceInput] = useState('');
+  const [viewMode, setViewMode] = useState('list'); // 'list' | 'grid'
+  const [sortOrder, setSortOrder] = useState(null); // null | 'name' | 'price'
 
   const loadProducts = useCallback(async () => {
     const list = await getAllProductsForPriceScreen();
@@ -56,6 +59,28 @@ export default function PurchasePriceScreen({ navigation }) {
     setFiltered(products.filter((p) => (p.name || '').toLowerCase().includes(q)));
   }, [search, products]);
 
+  const sortedList = React.useMemo(() => {
+    const list = [...filtered];
+    if (sortOrder === 'name') {
+      list.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+    } else if (sortOrder === 'price') {
+      list.sort((a, b) => (Number(a.price) || 0) - (Number(b.price) || 0));
+    }
+    return list;
+  }, [filtered, sortOrder]);
+
+  const toggleViewMode = useCallback(() => {
+    setViewMode((prev) => (prev === 'list' ? 'grid' : 'list'));
+  }, []);
+
+  const showSortMenu = useCallback(() => {
+    Alert.alert(t('sortBy'), '', [
+      { text: t('cancel'), style: 'cancel' },
+      { text: t('sortByName'), onPress: () => setSortOrder('name') },
+      { text: t('sortByPrice'), onPress: () => setSortOrder('price') },
+    ]);
+  }, [t]);
+
   const openEdit = (item) => {
     setEditModal(item);
     setPriceInput(String(item.price ?? ''));
@@ -72,26 +97,45 @@ export default function PurchasePriceScreen({ navigation }) {
   const renderItem = useCallback(
     ({ item }) => {
       const imageSource = getBottleImage(item) || (item.image ? { uri: item.image } : null);
-      return (
-      <View style={styles.row}>
-        <View style={styles.rowLeft}>
-          {imageSource ? (
-            <Image source={imageSource} style={styles.thumb} resizeMode="contain" />
-          ) : (
-            <View style={styles.thumbPlaceholder}>
-              <Icon name={Icons.localBar} size={28} color={colors.textSecondary} />
+      const isGrid = viewMode === 'grid';
+      if (isGrid) {
+        return (
+          <View style={styles.gridCard}>
+            <View style={styles.gridThumbWrap}>
+              {imageSource ? (
+                <Image source={imageSource} style={styles.gridThumb} resizeMode="contain" />
+              ) : (
+                <View style={styles.gridThumbPlaceholder}>
+                  <Icon name={Icons.localBar} size={32} color={colors.textSecondary} />
+                </View>
+              )}
             </View>
-          )}
-          <View style={styles.rowText}>
-            <Text style={styles.productName} numberOfLines={2}>{item.name}</Text>
-            <Text style={styles.volume}>{item.volume ? `${item.volume} ml` : '—'}</Text>
+            <Text style={styles.gridProductName} numberOfLines={2}>{item.name}</Text>
+            <Text style={styles.gridVolume}>{item.volume ? `${item.volume} ml` : '—'}</Text>
+            <PriceCard price={item.price} onPress={() => openEdit(item)} />
           </View>
+        );
+      }
+      return (
+        <View style={styles.row}>
+          <View style={styles.rowLeft}>
+            {imageSource ? (
+              <Image source={imageSource} style={styles.thumb} resizeMode="contain" />
+            ) : (
+              <View style={styles.thumbPlaceholder}>
+                <Icon name={Icons.localBar} size={28} color={colors.textSecondary} />
+              </View>
+            )}
+            <View style={styles.rowText}>
+              <Text style={styles.productName} numberOfLines={2}>{item.name}</Text>
+              <Text style={styles.volume}>{item.volume ? `${item.volume} ml` : '—'}</Text>
+            </View>
+          </View>
+          <PriceCard price={item.price} onPress={() => openEdit(item)} />
         </View>
-        <PriceCard price={item.price} onPress={() => openEdit(item)} />
-      </View>
       );
     },
-    []
+    [viewMode]
   );
 
   const keyExtractor = useCallback((item) => String(item.id), []);
@@ -112,10 +156,14 @@ export default function PurchasePriceScreen({ navigation }) {
           <Text style={styles.headerTitle}>{t('purchasePrices')}</Text>
         </View>
         <View style={styles.headerIcons}>
-          <TouchableOpacity style={styles.iconBtn}>
-            <Icon name={Icons.cropSquare} size={22} color={colors.textPrimary} />
+          <TouchableOpacity style={styles.iconBtn} onPress={toggleViewMode}>
+            <Icon
+              name={viewMode === 'list' ? Icons.viewModule : Icons.viewList}
+              size={22}
+              color={colors.textPrimary}
+            />
           </TouchableOpacity>
-          <TouchableOpacity style={styles.iconBtn}>
+          <TouchableOpacity style={styles.iconBtn} onPress={showSortMenu}>
             <Icon name={Icons.list} size={22} color={colors.textPrimary} />
           </TouchableOpacity>
         </View>
@@ -129,14 +177,17 @@ export default function PurchasePriceScreen({ navigation }) {
             placeholder={t('searchProducts')}
             style={styles.searchBar}
           />
-          <Text style={styles.count}>{t('productsCount', { count: filtered.length })}</Text>
+          <Text style={styles.count}>{t('productsCount', { count: sortedList.length })}</Text>
         </View>
 
         <FlatList
-          data={filtered}
+          data={sortedList}
           renderItem={renderItem}
           keyExtractor={keyExtractor}
-          contentContainerStyle={styles.listContent}
+          numColumns={viewMode === 'grid' ? 2 : 1}
+          key={viewMode}
+          contentContainerStyle={[styles.listContent, viewMode === 'grid' && styles.gridListContent]}
+          columnWrapperStyle={viewMode === 'grid' ? styles.gridRow : undefined}
           ListEmptyComponent={
             <View style={styles.emptyWrap}>
               <Icon name={Icons.attachMoney} size={48} color={colors.textSecondary} />
@@ -256,6 +307,53 @@ const styles = StyleSheet.create({
   listContent: {
     paddingBottom: 100,
   },
+  gridListContent: {
+    paddingHorizontal: 0,
+  },
+  gridRow: {
+    gap: spacing.sm,
+    marginBottom: spacing.sm,
+    paddingHorizontal: spacing.sm,
+  },
+  gridCard: {
+    flex: 1,
+    backgroundColor: colors.cardBackground,
+    borderRadius: borderRadius.md,
+    padding: spacing.md,
+    alignItems: 'center',
+    minHeight: 180,
+  },
+  gridThumbWrap: {
+    width: '100%',
+    height: 72,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: spacing.sm,
+  },
+  gridThumb: {
+    width: 40,
+    height: 72,
+    borderRadius: 4,
+  },
+  gridThumbPlaceholder: {
+    width: 40,
+    height: 72,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  gridProductName: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.textPrimary,
+    textAlign: 'center',
+    width: '100%',
+    marginBottom: 2,
+  },
+  gridVolume: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    marginBottom: spacing.sm,
+  },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -288,6 +386,7 @@ const styles = StyleSheet.create({
   },
   rowText: {
     flex: 1,
+    minWidth: 0,
   },
   productName: {
     fontSize: 16,

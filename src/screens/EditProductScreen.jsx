@@ -1,7 +1,8 @@
 /**
- * Full form to add a new product manually (name, volume, category, purchase price, image).
+ * Edit an existing product (name, volume, category, price, image).
+ * Opened from ProductListScreen when in edit mode and user taps a product.
  */
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import {
   View,
   Text,
@@ -15,9 +16,6 @@ import {
   ActivityIndicator,
   Alert,
   Image,
-  Modal,
-  FlatList,
-  Pressable,
 } from 'react-native';
 import * as RNImagePicker from 'react-native-image-picker';
 import { Icon, Icons } from '../assets/icons';
@@ -27,29 +25,36 @@ import { colors, spacing, borderRadius } from '../theme/colors';
 
 const IMAGE_PREVIEW_SIZE = 120;
 
-export default function AddNewProductScreen({ navigation }) {
-  const { addProduct, areas, currentAreaId, dbReady } = useInventory();
+export default function EditProductScreen({ route, navigation }) {
+  const product = route.params?.product;
+  const { updateProduct, currentAreaName, dbReady } = useInventory();
   const { t } = useLanguage();
-  const [name, setName] = useState('');
-  const [volume, setVolume] = useState('');
-  const [category, setCategory] = useState('');
-  const [selectedAreaId, setSelectedAreaId] = useState(currentAreaId);
-  const [categoryDropdownVisible, setCategoryDropdownVisible] = useState(false);
-  const [price, setPrice] = useState('');
+  const [name, setName] = useState(product?.name ?? '');
+  const [volume, setVolume] = useState(product?.volume != null ? String(product.volume) : '');
+  const [category, setCategory] = useState(product?.category ?? '');
+  const [price, setPrice] = useState(product?.price != null ? String(product.price) : '');
   const [imageUri, setImageUri] = useState(null);
-  const [imageUrl, setImageUrl] = useState('');
+  const [imageUrl, setImageUrl] = useState(product?.image && typeof product.image === 'string' ? product.image : '');
   const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState({});
 
-  const selectedArea = areas.find((a) => a.id === selectedAreaId) || areas[0];
-  const selectedAreaName = selectedArea?.name ?? '';
+  useEffect(() => {
+    if (product) {
+      setName(product.name ?? '');
+      setVolume(product.volume != null ? String(product.volume) : '');
+      setCategory(product.category ?? '');
+      setPrice(product.price != null ? String(product.price) : '');
+      setImageUrl(product.image && typeof product.image === 'string' ? product.image : '');
+      setImageUri(null);
+    }
+  }, [product?.id]);
 
   const handlePickImage = useCallback(() => {
     const launchImageLibrary = RNImagePicker?.launchImageLibrary;
     if (typeof launchImageLibrary !== 'function') {
       Alert.alert(
         'Image picker unavailable',
-        'Please rebuild the app: run "cd ios && pod install" then rebuild. Image upload will work after that.'
+        'Please rebuild the app: run "cd ios && pod install" then rebuild.'
       );
       return;
     }
@@ -61,16 +66,14 @@ export default function AddNewProductScreen({ navigation }) {
       }
     );
     if (promise && typeof promise.catch === 'function') {
-      promise.catch((e) => {
-        Alert.alert(
-          'Image picker error',
-          'Rebuild the app for gallery upload (iOS: already ran pod install — rebuild the app). Or enter an image URL below.'
-        );
-      });
+      promise.catch(() => {});
     }
   }, []);
 
-  const handleRemoveImage = useCallback(() => setImageUri(null), []);
+  const handleRemoveImage = useCallback(() => {
+    setImageUri(null);
+    setImageUrl('');
+  }, []);
 
   const validate = useCallback(() => {
     const next = {};
@@ -84,16 +87,15 @@ export default function AddNewProductScreen({ navigation }) {
   }, [name, volume, price, t]);
 
   const handleSave = useCallback(async () => {
-    if (!validate()) return;
+    if (!product?.id || !validate()) return;
     setSaving(true);
     try {
-      await addProduct({
+      await updateProduct(product.id, {
         name: name.trim(),
         volume: volume === '' ? 0 : parseInt(volume, 10),
-        category: category.trim() || selectedAreaName || undefined,
+        category: category.trim() || undefined,
         price: price === '' ? 0 : parseFloat((price || '0').replace(',', '.')),
         image: imageUri || (imageUrl.trim() || ''),
-        areaId: selectedAreaId,
       });
       navigation.goBack();
     } catch (e) {
@@ -101,14 +103,20 @@ export default function AddNewProductScreen({ navigation }) {
     } finally {
       setSaving(false);
     }
-  }, [name, volume, category, price, imageUri, imageUrl, selectedAreaId, selectedAreaName, addProduct, navigation, validate]);
+  }, [product?.id, name, volume, category, price, imageUri, imageUrl, updateProduct, navigation, validate]);
 
-  const openCategoryDropdown = useCallback(() => setCategoryDropdownVisible(true), []);
-  const closeCategoryDropdown = useCallback(() => setCategoryDropdownVisible(false), []);
-  const selectArea = useCallback((area) => {
-    setSelectedAreaId(area.id);
-    setCategoryDropdownVisible(false);
-  }, []);
+  if (!product) {
+    return (
+      <SafeAreaView style={styles.safe}>
+        <View style={styles.centered}>
+          <Text style={styles.errorText}>{t('noProducts')}</Text>
+          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backTextBtn}>
+            <Text style={styles.backText}>{t('back')}</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   if (!dbReady) {
     return (
@@ -124,14 +132,14 @@ export default function AddNewProductScreen({ navigation }) {
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.headerBtn}>
           <Icon name={Icons.arrowBack} size={24} color={colors.textPrimary} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle} numberOfLines={1}>{t('addNewProduct')}</Text>
+        <Text style={styles.headerTitle} numberOfLines={1}>{t('editProduct')}</Text>
         <View style={styles.headerBtn} />
       </View>
 
       <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
+        keyboardVerticalOffset={0}
       >
         <ScrollView
           style={styles.scroll}
@@ -139,16 +147,12 @@ export default function AddNewProductScreen({ navigation }) {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          <Text style={styles.areaHint}>{selectedAreaName}</Text>
+          <Text style={styles.areaHint}>{currentAreaName}</Text>
 
           <View style={styles.field}>
             <Text style={styles.label}>{t('productImage')}</Text>
             <View style={styles.imageRow}>
-              <TouchableOpacity
-                style={styles.imageTouchable}
-                onPress={handlePickImage}
-                activeOpacity={0.8}
-              >
+              <TouchableOpacity style={styles.imageTouchable} onPress={handlePickImage} activeOpacity={0.8}>
                 {(imageUri || imageUrl.trim()) ? (
                   <View style={styles.imagePreviewWrap}>
                     <Image
@@ -156,11 +160,7 @@ export default function AddNewProductScreen({ navigation }) {
                       style={styles.imagePreview}
                       resizeMode="cover"
                     />
-                    <TouchableOpacity
-                      style={styles.removeImageBtn}
-                      onPress={() => { handleRemoveImage(); setImageUrl(''); }}
-                      hitSlop={8}
-                    >
+                    <TouchableOpacity style={styles.removeImageBtn} onPress={handleRemoveImage} hitSlop={8}>
                       <Icon name={Icons.close} size={20} color={colors.white} />
                     </TouchableOpacity>
                   </View>
@@ -212,48 +212,15 @@ export default function AddNewProductScreen({ navigation }) {
           </View>
 
           <View style={styles.field}>
-            <Text style={styles.label}>{t('categoryName')}</Text>
-            <TouchableOpacity
-              style={styles.dropdownTouch}
-              onPress={openCategoryDropdown}
-              activeOpacity={0.7}
-            >
-              <Text style={[styles.dropdownText, !selectedAreaName && styles.dropdownPlaceholder]}>
-                {selectedAreaName || t('categoryNamePlaceholder')}
-              </Text>
-              <Icon name={Icons.keyboardArrowDown} size={24} color={colors.textSecondary} />
-            </TouchableOpacity>
-            <Modal
-              visible={categoryDropdownVisible}
-              transparent
-              animationType="fade"
-              onRequestClose={closeCategoryDropdown}
-            >
-              <Pressable style={styles.modalOverlay} onPress={closeCategoryDropdown}>
-                <Pressable style={styles.dropdownModal} onPress={() => {}}>
-                  <Text style={styles.dropdownModalTitle}>{t('categoryName')}</Text>
-                  <FlatList
-                    data={areas}
-                    keyExtractor={(item) => String(item.id)}
-                    renderItem={({ item }) => (
-                      <TouchableOpacity
-                        style={[styles.dropdownItem, item.id === selectedAreaId && styles.dropdownItemSelected]}
-                        onPress={() => selectArea(item)}
-                        activeOpacity={0.7}
-                      >
-                        <Text style={styles.dropdownItemText}>{item.name}</Text>
-                        {item.id === selectedAreaId ? (
-                          <Icon name={Icons.check} size={22} color={colors.primaryBlue} />
-                        ) : null}
-                      </TouchableOpacity>
-                    )}
-                    ListEmptyComponent={
-                      <Text style={styles.dropdownEmpty}>{t('noProducts')}</Text>
-                    }
-                  />
-                </Pressable>
-              </Pressable>
-            </Modal>
+            <Text style={styles.label}>{t('category')}</Text>
+            <TextInput
+              style={styles.input}
+              value={category}
+              onChangeText={setCategory}
+              placeholder={t('categoryPlaceholder')}
+              placeholderTextColor={colors.textSecondary}
+              autoCapitalize="words"
+            />
           </View>
 
           <View style={styles.field}>
@@ -290,13 +257,8 @@ export default function AddNewProductScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
-  safe: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  flex: {
-    flex: 1,
-  },
+  safe: { flex: 1, backgroundColor: colors.background },
+  flex: { flex: 1 },
   centered: {
     flex: 1,
     justifyContent: 'center',
@@ -312,10 +274,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
   },
-  headerBtn: {
-    padding: spacing.sm,
-    minWidth: 40,
-  },
+  headerBtn: { padding: spacing.sm, minWidth: 40 },
   headerTitle: {
     flex: 1,
     fontSize: 18,
@@ -323,86 +282,11 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     textAlign: 'center',
   },
-  scroll: {
-    flex: 1,
-  },
-  scrollContent: {
-    padding: spacing.lg,
-    paddingBottom: spacing.xxl * 2,
-  },
-  areaHint: {
-    fontSize: 13,
-    color: colors.textSecondary,
-    marginBottom: spacing.lg,
-  },
-  dropdownTouch: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: colors.cardBackground,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: borderRadius.md,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.md,
-  },
-  dropdownText: {
-    fontSize: 16,
-    color: colors.textPrimary,
-  },
-  dropdownPlaceholder: {
-    color: colors.textSecondary,
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.4)',
-    justifyContent: 'center',
-    padding: spacing.xl,
-  },
-  dropdownModal: {
-    backgroundColor: colors.cardBackground,
-    borderRadius: borderRadius.md,
-    maxHeight: 320,
-    overflow: 'hidden',
-  },
-  dropdownModalTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.textPrimary,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  dropdownItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.md,
-  },
-  dropdownItemSelected: {
-    backgroundColor: colors.background,
-  },
-  dropdownItemText: {
-    fontSize: 16,
-    color: colors.textPrimary,
-  },
-  dropdownEmpty: {
-    fontSize: 14,
-    color: colors.textSecondary,
-    padding: spacing.lg,
-    textAlign: 'center',
-  },
-  field: {
-    marginBottom: spacing.lg,
-  },
-  label: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.textPrimary,
-    marginBottom: spacing.xs,
-  },
+  scroll: { flex: 1 },
+  scrollContent: { padding: spacing.lg, paddingBottom: spacing.xxl * 2 },
+  areaHint: { fontSize: 13, color: colors.textSecondary, marginBottom: spacing.lg },
+  field: { marginBottom: spacing.lg },
+  label: { fontSize: 14, fontWeight: '600', color: colors.textPrimary, marginBottom: spacing.xs },
   input: {
     backgroundColor: colors.cardBackground,
     borderWidth: 1,
@@ -413,20 +297,10 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: colors.textPrimary,
   },
-  inputError: {
-    borderColor: colors.danger,
-  },
-  errorText: {
-    fontSize: 12,
-    color: colors.danger,
-    marginTop: spacing.xs,
-  },
-  imageRow: {
-    marginTop: spacing.xs,
-  },
-  imageTouchable: {
-    alignSelf: 'flex-start',
-  },
+  inputError: { borderColor: colors.danger },
+  errorText: { fontSize: 12, color: colors.danger, marginTop: spacing.xs },
+  imageRow: { marginTop: spacing.xs },
+  imageTouchable: { alignSelf: 'flex-start' },
   imagePlaceholder: {
     width: IMAGE_PREVIEW_SIZE,
     height: IMAGE_PREVIEW_SIZE,
@@ -438,11 +312,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  imagePlaceholderText: {
-    marginTop: spacing.xs,
-    fontSize: 13,
-    color: colors.textSecondary,
-  },
+  imagePlaceholderText: { marginTop: spacing.xs, fontSize: 13, color: colors.textSecondary },
   imagePreviewWrap: {
     width: IMAGE_PREVIEW_SIZE,
     height: IMAGE_PREVIEW_SIZE,
@@ -450,16 +320,8 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     position: 'relative',
   },
-  imagePreview: {
-    width: '100%',
-    height: '100%',
-  },
-  orUrlLabel: {
-    fontSize: 13,
-    color: colors.textSecondary,
-    marginTop: spacing.md,
-    marginBottom: spacing.xs,
-  },
+  imagePreview: { width: '100%', height: '100%' },
+  orUrlLabel: { fontSize: 13, color: colors.textSecondary, marginTop: spacing.md, marginBottom: spacing.xs },
   removeImageBtn: {
     position: 'absolute',
     top: 4,
@@ -481,15 +343,9 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.md,
     marginTop: spacing.xl,
   },
-  saveBtnDisabled: {
-    opacity: 0.7,
-  },
-  saveBtnIcon: {
-    marginRight: spacing.sm,
-  },
-  saveBtnText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.white,
-  },
+  saveBtnDisabled: { opacity: 0.7 },
+  saveBtnIcon: { marginRight: spacing.sm },
+  saveBtnText: { fontSize: 16, fontWeight: '600', color: colors.white },
+  backTextBtn: { marginTop: spacing.md },
+  backText: { fontSize: 16, color: colors.primaryBlue },
 });

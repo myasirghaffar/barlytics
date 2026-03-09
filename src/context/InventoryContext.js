@@ -1,8 +1,11 @@
 /**
- * Global inventory state: products, areas, current station, and DB helpers.
+ * Global inventory state: products, areas, current station, offline preference, and DB helpers.
  */
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as DB from '../database/inventoryDB';
+
+const OFFLINE_STORAGE_KEY = '@barbrain_offline_download';
 
 const InventoryContext = createContext(null);
 
@@ -12,6 +15,7 @@ export function InventoryProvider({ children }) {
   const [currentAreaId, setCurrentAreaId] = useState(1);
   const [currentAreaName, setCurrentAreaName] = useState('Cocktailstation');
   const [dbReady, setDbReady] = useState(false);
+  const [offlineDownloadEnabled, setOfflineDownloadEnabledState] = useState(false);
 
   const loadDB = useCallback(async () => {
     try {
@@ -27,6 +31,21 @@ export function InventoryProvider({ children }) {
     loadDB();
   }, [loadDB]);
 
+  useEffect(() => {
+    let mounted = true;
+    AsyncStorage.getItem(OFFLINE_STORAGE_KEY)
+      .then((stored) => {
+        if (mounted) setOfflineDownloadEnabledState(stored === 'true');
+      })
+      .catch(() => {});
+    return () => { mounted = false; };
+  }, []);
+
+  const setOfflineDownloadEnabled = useCallback((value) => {
+    setOfflineDownloadEnabledState(value);
+    AsyncStorage.setItem(OFFLINE_STORAGE_KEY, value ? 'true' : 'false').catch(() => {});
+  }, []);
+
   const refreshAreas = useCallback(async () => {
     if (!dbReady) return;
     const list = await DB.getAreas();
@@ -34,8 +53,28 @@ export function InventoryProvider({ children }) {
     if (list.length && !list.find((a) => a.id === currentAreaId)) {
       setCurrentAreaId(list[0].id);
       setCurrentAreaName(list[0].name);
+    } else {
+      const current = list.find((a) => a.id === currentAreaId);
+      if (current) setCurrentAreaName(current.name);
     }
   }, [dbReady, currentAreaId]);
+
+  const updateArea = useCallback(
+    async (id, name) => {
+      await DB.updateArea(id, name);
+      await refreshAreas();
+    },
+    [refreshAreas]
+  );
+
+  const addArea = useCallback(
+    async (name) => {
+      const id = await DB.addArea(name || '');
+      await refreshAreas();
+      return id;
+    },
+    [refreshAreas]
+  );
 
   const refreshProducts = useCallback(async () => {
     if (!dbReady) return;
@@ -57,11 +96,20 @@ export function InventoryProvider({ children }) {
 
   const addProduct = useCallback(
     async (product) => {
-      const id = await DB.addProduct({ ...product, areaId: currentAreaId });
-      await refreshProducts();
+      const areaId = product.areaId ?? currentAreaId;
+      const id = await DB.addProduct({ ...product, areaId });
+      if (areaId !== currentAreaId) {
+        setCurrentAreaId(areaId);
+        const area = areas.find((a) => a.id === areaId);
+        if (area) setCurrentAreaName(area.name);
+        const list = await DB.getProducts(areaId);
+        setProducts(list);
+      } else {
+        await refreshProducts();
+      }
       return id;
     },
-    [currentAreaId, refreshProducts]
+    [currentAreaId, refreshProducts, areas]
   );
 
   const addProducts = useCallback(
@@ -118,9 +166,10 @@ export function InventoryProvider({ children }) {
   }, [dbReady]);
 
   const getReportStats = useCallback(
-    async (areaId = null) => {
+    async (areaId = undefined) => {
       if (!dbReady) return { totalBottles: 0, totalValue: 0, lowStock: 0, products: [] };
-      return DB.getReportStats(areaId ?? currentAreaId);
+      const id = areaId === undefined ? currentAreaId : areaId;
+      return DB.getReportStats(id);
     },
     [dbReady, currentAreaId]
   );
@@ -138,8 +187,12 @@ export function InventoryProvider({ children }) {
     currentAreaName,
     setCurrentAreaId,
     setCurrentAreaName,
+    offlineDownloadEnabled,
+    setOfflineDownloadEnabled,
     refreshProducts,
     refreshAreas,
+    updateArea,
+    addArea,
     addProduct,
     addProducts,
     updateProduct,

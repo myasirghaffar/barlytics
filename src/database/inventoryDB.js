@@ -167,6 +167,10 @@ export async function addArea(name) {
   return rows[0]?.id;
 }
 
+export async function updateArea(id, name) {
+  await runSql('UPDATE areas SET name = ? WHERE id = ?', [name || '', id]);
+}
+
 // --- Products ---
 export async function getProducts(areaId = null) {
   const sql = areaId

@@ -21,9 +21,9 @@ const styles = StyleSheet.create({
   card: {
     backgroundColor: colors.accentGreen,
     borderRadius: borderRadius.md,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.lg,
-    minWidth: 88,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    minWidth: 72,
     alignItems: 'center',
     justifyContent: 'center',
   },

@@ -59,6 +59,7 @@ export const Icons = {
   playArrow: 'play-arrow',
   chevronLeft: 'chevron-left',
   chevronRight: 'chevron-right',
+  keyboardArrowDown: 'keyboard-arrow-down',
 };
 
 /** Area list icon names (by index) */

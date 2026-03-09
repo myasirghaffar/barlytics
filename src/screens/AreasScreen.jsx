@@ -1,7 +1,8 @@
 /**
- * Areas / Stations list. Tap an area to open its Product List. Header includes language switcher (EN / DE).
+ * Areas / Stations list. Tap an area to open its Product List.
+ * Pencil: edit mode (tap area to edit name). Gear: Settings. FAB: add category.
  */
-import React, { useState } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import {
   View,
   Text,
@@ -11,6 +12,10 @@ import {
   SafeAreaView,
   ActivityIndicator,
   Image,
+  Modal,
+  TextInput,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { Icon, Icons, AREA_ICONS } from '../assets/icons';
 
@@ -24,10 +29,22 @@ import { colors, spacing, borderRadius, shadows } from '../theme/colors';
 const AREA_COLORS = ['#EC4899', '#3B82F6', '#10B981', '#8B5CF6', '#F59E0B'];
 
 export default function AreasScreen({ navigation }) {
-  const { areas, dbReady, setCurrentAreaId, setCurrentAreaName } = useInventory();
+  const { areas, dbReady, setCurrentAreaId, setCurrentAreaName, updateArea, addArea, getReportStats } = useInventory();
   const { t, locale, setLocale } = useLanguage();
   const [search, setSearch] = useState('');
-  const [filtered, setFiltered] = React.useState(areas);
+  const [filtered, setFiltered] = useState(areas);
+  const [stats, setStats] = useState({ totalBottles: 0, totalValue: 0, lowStock: 0 });
+  const [editMode, setEditMode] = useState(false);
+  const [addModalVisible, setAddModalVisible] = useState(false);
+  const [editModalVisible, setEditModalVisible] = useState(false);
+  const [editArea, setEditArea] = useState(null);
+  const [categoryName, setCategoryName] = useState('');
+  const [newCategoryName, setNewCategoryName] = useState('');
+
+  useEffect(() => {
+    if (!dbReady) return;
+    getReportStats(null).then(setStats);
+  }, [dbReady, getReportStats]);
 
   React.useEffect(() => {
     const q = search.trim().toLowerCase();
@@ -35,11 +52,40 @@ export default function AreasScreen({ navigation }) {
     else setFiltered(areas.filter((a) => (a.name || '').toLowerCase().includes(q)));
   }, [search, areas]);
 
-  const onAreaPress = (item) => {
-    setCurrentAreaId(item.id);
-    setCurrentAreaName(item.name);
-    navigation.navigate('ProductList');
-  };
+  const onAreaPress = useCallback(
+    (item) => {
+      if (editMode) {
+        setEditArea(item);
+        setCategoryName(item.name || '');
+        setEditModalVisible(true);
+      } else {
+        setCurrentAreaId(item.id);
+        setCurrentAreaName(item.name);
+        navigation.navigate('ProductList');
+      }
+    },
+    [editMode, setCurrentAreaId, setCurrentAreaName, navigation],
+  );
+
+  const openAddCategory = useCallback(() => {
+    setNewCategoryName('');
+    setAddModalVisible(true);
+  }, []);
+
+  const saveNewCategory = useCallback(async () => {
+    const name = (newCategoryName || '').trim();
+    if (!name) return;
+    await addArea(name);
+    setAddModalVisible(false);
+  }, [newCategoryName, addArea]);
+
+  const saveEditCategory = useCallback(async () => {
+    const name = (categoryName || '').trim();
+    if (!name || !editArea?.id) return;
+    await updateArea(editArea.id, name);
+    setEditModalVisible(false);
+    setEditArea(null);
+  }, [categoryName, editArea, updateArea]);
 
   if (!dbReady) {
     return (
@@ -72,21 +118,53 @@ export default function AreasScreen({ navigation }) {
               <Text style={[styles.langBtnText, locale === 'de' && styles.langBtnTextActive]}>{t('langDe')}</Text>
             </TouchableOpacity>
           </View>
-          <TouchableOpacity style={styles.iconBtn}>
-            <Icon name={Icons.edit} size={22} color={colors.textPrimary} />
+          <TouchableOpacity
+            style={[styles.iconBtn, editMode && styles.iconBtnActive]}
+            onPress={() => setEditMode((prev) => !prev)}
+          >
+            <Icon
+              name={Icons.edit}
+              size={22}
+              color={editMode ? colors.primaryBlue : colors.textPrimary}
+            />
           </TouchableOpacity>
-          <TouchableOpacity style={styles.iconBtn}>
+          <TouchableOpacity style={styles.iconBtn} onPress={() => navigation.navigate('Settings')}>
             <Icon name={Icons.settings} size={22} color={colors.textPrimary} />
           </TouchableOpacity>
         </View>
       </View>
 
       <View style={styles.content}>
+        <View style={styles.statsRow}>
+          <View style={[styles.statCard, shadows.card]}>
+            <Icon name={Icons.inventory2} size={28} color={colors.primaryBlue} style={styles.statIcon} />
+            <Text style={styles.statValue}>{stats.totalBottles}</Text>
+            <Text style={styles.statLabel}>{t('totalBottles')}</Text>
+          </View>
+          <View style={[styles.statCard, shadows.card]}>
+            <Icon name={Icons.euro} size={28} color={colors.accentGreen} style={styles.statIcon} />
+            <Text style={styles.statValue}>
+              {typeof stats.totalValue === 'number' ? `${stats.totalValue.toFixed(2)} €` : '0.00 €'}
+            </Text>
+            <Text style={styles.statLabel}>{t('stockValue')}</Text>
+          </View>
+          <View style={[styles.statCard, shadows.card]}>
+            <Icon name={Icons.warning} size={28} color={stats.lowStock > 0 ? colors.danger : colors.textSecondary} style={styles.statIcon} />
+            <Text style={[styles.statValue, stats.lowStock > 0 && styles.statValueDanger]}>{stats.lowStock}</Text>
+            <Text style={styles.statLabel}>{t('lowStock')}</Text>
+          </View>
+        </View>
         <SearchBar
           value={search}
           onChangeText={setSearch}
           placeholder={t('searchArea')}
         />
+        {editMode && (
+          <View style={styles.editModeBanner}>
+            <Icon name={Icons.edit} size={18} color={colors.primaryBlue} />
+            <Text style={styles.editModeBannerText}>{t('tapItemToEdit')}</Text>
+          </View>
+        )}
         <View style={styles.sectionTitleRow}>
           <Icon name={Icons.folderOpen} size={20} color={colors.primaryBlue} style={styles.sectionIcon} />
           <Text style={styles.sectionTitle}>{t('yourAreas')}</Text>
@@ -126,20 +204,78 @@ export default function AreasScreen({ navigation }) {
         />
       </View>
 
-  <FloatingAddButton
-        onPress={() => {
-          const first = areas[0];
-          if (first) {
-            setCurrentAreaId(first.id);
-            setCurrentAreaName(first.name);
-          } else {
-            setCurrentAreaId(1);
-            setCurrentAreaName('Cocktailstation');
-          }
-          navigation.navigate('AddProduct');
-        }}
-      />
-</SafeAreaView>
+      <FloatingAddButton onPress={openAddCategory} />
+
+      <Modal visible={addModalVisible} transparent animationType="fade">
+        <TouchableOpacity
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setAddModalVisible(false)}
+        >
+          <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+            style={styles.modalWrap}
+          >
+            <TouchableOpacity activeOpacity={1} onPress={(e) => e.stopPropagation()}>
+              <View style={styles.modalBox}>
+                <Text style={styles.modalTitle}>{t('addCategory')}</Text>
+                <TextInput
+                  style={styles.modalInput}
+                  value={newCategoryName}
+                  onChangeText={setNewCategoryName}
+                  placeholder={t('categoryNamePlaceholder')}
+                  placeholderTextColor={colors.textSecondary}
+                  autoFocus
+                />
+                <View style={styles.modalActions}>
+                  <TouchableOpacity onPress={() => setAddModalVisible(false)} style={styles.modalBtn}>
+                    <Text style={styles.modalBtnCancel}>{t('cancel')}</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={saveNewCategory} style={styles.modalBtn}>
+                    <Text style={styles.modalBtnSave}>{t('saveCategory')}</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </TouchableOpacity>
+          </KeyboardAvoidingView>
+        </TouchableOpacity>
+      </Modal>
+
+      <Modal visible={editModalVisible} transparent animationType="fade">
+        <TouchableOpacity
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setEditModalVisible(false)}
+        >
+          <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+            style={styles.modalWrap}
+          >
+            <TouchableOpacity activeOpacity={1} onPress={(e) => e.stopPropagation()}>
+              <View style={styles.modalBox}>
+                <Text style={styles.modalTitle}>{t('editCategory')}</Text>
+                <TextInput
+                  style={styles.modalInput}
+                  value={categoryName}
+                  onChangeText={setCategoryName}
+                  placeholder={t('categoryNamePlaceholder')}
+                  placeholderTextColor={colors.textSecondary}
+                  autoFocus
+                />
+                <View style={styles.modalActions}>
+                  <TouchableOpacity onPress={() => setEditModalVisible(false)} style={styles.modalBtn}>
+                    <Text style={styles.modalBtnCancel}>{t('cancel')}</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={saveEditCategory} style={styles.modalBtn}>
+                    <Text style={styles.modalBtnSave}>{t('saveCategory')}</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </TouchableOpacity>
+          </KeyboardAvoidingView>
+        </TouchableOpacity>
+      </Modal>
+    </SafeAreaView>
   );
 }
 
@@ -206,9 +342,59 @@ const styles = StyleSheet.create({
   iconBtn: {
     padding: spacing.sm,
   },
+  iconBtnActive: {
+    backgroundColor: colors.background,
+    borderRadius: 8,
+  },
   content: {
     flex: 1,
     padding: spacing.md,
+  },
+  statsRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    marginBottom: spacing.md,
+  },
+  statCard: {
+    flex: 1,
+    backgroundColor: colors.cardBackground,
+    borderRadius: borderRadius.md,
+    padding: spacing.md,
+    alignItems: 'center',
+  },
+  statIcon: {
+    marginBottom: spacing.sm,
+  },
+  statValue: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.textPrimary,
+  },
+  statValueDanger: {
+    color: colors.danger,
+  },
+  statLabel: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    marginTop: 4,
+  },
+  editModeBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
+    backgroundColor: colors.cardBackground,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    marginBottom: spacing.sm,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  editModeBannerText: {
+    fontSize: 13,
+    color: colors.primaryBlue,
+    fontWeight: '600',
   },
   sectionTitleRow: {
     flexDirection: 'row',
@@ -235,6 +421,8 @@ const styles = StyleSheet.create({
   },
   listContent: {
     paddingBottom: 100,
+    paddingHorizontal: 2,
+    paddingTop: spacing.xs,
   },
   areaCard: {
     flexDirection: 'row',
@@ -269,4 +457,40 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: colors.white,
   },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    padding: spacing.xl,
+  },
+  modalWrap: { width: '100%' },
+  modalBox: {
+    backgroundColor: colors.cardBackground,
+    borderRadius: 12,
+    padding: spacing.xl,
+  },
+  modalTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.textPrimary,
+    marginBottom: spacing.md,
+  },
+  modalInput: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 8,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    fontSize: 16,
+    color: colors.textPrimary,
+    marginBottom: spacing.lg,
+  },
+  modalActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: spacing.md,
+  },
+  modalBtn: { paddingVertical: spacing.sm, paddingHorizontal: spacing.lg },
+  modalBtnCancel: { fontSize: 16, color: colors.textSecondary },
+  modalBtnSave: { fontSize: 16, fontWeight: '600', color: colors.primaryBlue },
 });

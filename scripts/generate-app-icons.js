@@ -1,5 +1,5 @@
 /**
- * Generate Android and iOS app icons from src/assets/images/logo.png (Barbrain logo).
+ * Generate Android and iOS app icons from src/assets/images/AppLogo.png (Barbrain: blue bg + white logo).
  * Run: node scripts/generate-app-icons.js
  */
 const path = require('path');
@@ -7,7 +7,7 @@ const fs = require('fs');
 const sharp = require('sharp');
 
 const root = path.join(__dirname, '..');
-const logoPath = path.join(root, 'src', 'assets', 'images', 'logo.png');
+const logoPath = path.join(root, 'src', 'assets', 'images', 'AppLogo.png');
 
 // Android: mipmap density → size in px
 const androidSizes = {
@@ -35,9 +35,6 @@ const iosSizes = {
   'icon-1024.png': 1024,
 };
 
-// Barbrain primary blue background for icon (so white logo is visible)
-const BG_HEX = '#132554';
-
 async function generate() {
   if (!fs.existsSync(logoPath)) {
     throw new Error('Logo not found: ' + logoPath);
@@ -46,20 +43,7 @@ async function generate() {
   const image = sharp(logoPath);
 
   async function makeIcon(size) {
-    const padding = Math.round(size * 0.12);
-    const logoSize = size - padding * 2;
-    const resized = await image.clone().resize(logoSize, logoSize).png().toBuffer();
-    return sharp({
-      create: {
-        width: size,
-        height: size,
-        channels: 4,
-        background: BG_HEX,
-      },
-    })
-      .composite([{ input: resized, left: padding, top: padding }])
-      .png()
-      .toBuffer();
+    return image.clone().resize(size, size).png().toBuffer();
   }
 
   // Android
@@ -84,7 +68,7 @@ async function generate() {
     console.log('iOS:', filename, size + 'px');
   }
 
-  console.log('Done. Barbrain app icons generated from logo.png');
+  console.log('Done. Barbrain app icons generated from AppLogo.png');
 }
 
 generate().catch((err) => {

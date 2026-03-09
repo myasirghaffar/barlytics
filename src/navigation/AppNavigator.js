@@ -13,6 +13,9 @@ import AddProductScreen from '../screens/AddProductScreen';
 import AddNewProductScreen from '../screens/AddNewProductScreen';
 import PurchasePriceScreen from '../screens/PurchasePriceScreen';
 import InventoryModeScreen from '../screens/InventoryModeScreen';
+import ProductDetailScreen from '../screens/ProductDetailScreen';
+import EditProductScreen from '../screens/EditProductScreen';
+import SettingsScreen from '../screens/SettingsScreen';
 import ReportsScreen from '../screens/ReportsScreen';
 import { colors } from '../theme/colors';
 
@@ -27,9 +30,12 @@ function AreasStack() {
       }}
     >
       <Stack.Screen name="Areas" component={AreasScreen} />
+      <Stack.Screen name="Settings" component={SettingsScreen} />
       <Stack.Screen name="ProductList" component={ProductListScreen} />
       <Stack.Screen name="AddProduct" component={AddProductScreen} />
       <Stack.Screen name="AddNewProduct" component={AddNewProductScreen} />
+      <Stack.Screen name="ProductDetail" component={ProductDetailScreen} />
+      <Stack.Screen name="EditProduct" component={EditProductScreen} />
       <Stack.Screen name="InventoryMode" component={InventoryModeScreen} />
     </Stack.Navigator>
   );
