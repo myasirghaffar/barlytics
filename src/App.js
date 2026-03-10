@@ -7,6 +7,7 @@ import {
 } from "react-native";
 import { NavigationContainer, DefaultTheme } from "@react-navigation/native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
+import { SafeAreaProvider } from "react-native-safe-area-context";
 import { InventoryProvider } from "./context/InventoryContext";
 import { LanguageProvider } from "./context/LanguageContext";
 import AppNavigator from "./navigation/AppNavigator";
@@ -47,14 +48,16 @@ function App() {
 
   return (
     <GestureHandlerRootView style={styles.app}>
-      <StatusBar barStyle="dark-content" backgroundColor={colors.cardBackground} />
-      <LanguageProvider>
-        <InventoryProvider>
-          <NavigationContainer theme={navTheme}>
-            <AppNavigator />
-          </NavigationContainer>
-        </InventoryProvider>
-      </LanguageProvider>
+      <SafeAreaProvider>
+        <StatusBar barStyle="dark-content" backgroundColor={colors.cardBackground} />
+        <LanguageProvider>
+          <InventoryProvider>
+            <NavigationContainer theme={navTheme}>
+              <AppNavigator />
+            </NavigationContainer>
+          </InventoryProvider>
+        </LanguageProvider>
+      </SafeAreaProvider>
     </GestureHandlerRootView>
   );
 }

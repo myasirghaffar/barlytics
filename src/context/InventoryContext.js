@@ -67,6 +67,14 @@ export function InventoryProvider({ children }) {
     [refreshAreas]
   );
 
+  const deleteArea = useCallback(
+    async (id) => {
+      await DB.deleteArea(id);
+      await refreshAreas();
+    },
+    [refreshAreas]
+  );
+
   const addArea = useCallback(
     async (name) => {
       const id = await DB.addArea(name || '');
@@ -192,6 +200,7 @@ export function InventoryProvider({ children }) {
     refreshProducts,
     refreshAreas,
     updateArea,
+    deleteArea,
     addArea,
     addProduct,
     addProducts,

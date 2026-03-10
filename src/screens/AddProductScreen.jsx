@@ -8,9 +8,9 @@ import {
   StyleSheet,
   FlatList,
   TouchableOpacity,
-  SafeAreaView,
   ActivityIndicator,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { Icon, Icons } from "../assets/icons";
 import { useInventory } from "../context/InventoryContext";
 import { useLanguage } from "../context/LanguageContext";
@@ -96,7 +96,8 @@ export default function AddProductScreen({ navigation }) {
   }
 
   return (
-    <SafeAreaView style={styles.safe}>
+    <SafeAreaView style={styles.safe} edges={["left", "right", "bottom"]}>
+      <View style={styles.safeInner}>
       <View style={styles.header}>
         <TouchableOpacity
           onPress={() => navigation.goBack()}
@@ -181,6 +182,7 @@ export default function AddProductScreen({ navigation }) {
           <ActivityIndicator size="large" color={colors.white} />
         </View>
       )}
+      </View>
     </SafeAreaView>
   );
 }
@@ -189,6 +191,9 @@ const styles = StyleSheet.create({
   safe: {
     flex: 1,
     backgroundColor: colors.background,
+  },
+  safeInner: {
+    flex: 1,
   },
   centered: {
     flex: 1,

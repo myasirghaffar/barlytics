@@ -26,6 +26,7 @@ export const Icons = {
   // Search & content
   search: 'search',
   searchOff: 'search-off',
+  clipboard: 'assignment',
 
   // Areas & layout
   store: 'store',

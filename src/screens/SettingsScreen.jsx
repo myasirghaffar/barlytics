@@ -8,9 +8,9 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  SafeAreaView,
   Switch,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Icon, Icons } from '../assets/icons';
 import { useInventory } from '../context/InventoryContext';
 import { useLanguage } from '../context/LanguageContext';
@@ -21,7 +21,8 @@ export default function SettingsScreen({ navigation }) {
   const { t, locale, setLocale } = useLanguage();
 
   return (
-    <SafeAreaView style={styles.safe}>
+    <SafeAreaView style={styles.safe} edges={['left', 'right', 'bottom']}>
+      <View style={styles.safeInner}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
           <Icon name={Icons.arrowBack} size={24} color={colors.textPrimary} />
@@ -81,12 +82,14 @@ export default function SettingsScreen({ navigation }) {
           </Text>
         </View>
       </ScrollView>
+      </View>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.background },
+  safeInner: { flex: 1 },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
