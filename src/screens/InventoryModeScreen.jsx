@@ -7,10 +7,10 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  SafeAreaView,
   ActivityIndicator,
   Image,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Icon, Icons } from '../assets/icons';
 import { useInventory } from '../context/InventoryContext';
 import { useLanguage } from '../context/LanguageContext';
@@ -66,7 +66,8 @@ export default function InventoryModeScreen({ navigation, route }) {
 
   if (products.length === 0) {
     return (
-      <SafeAreaView style={styles.safe}>
+      <SafeAreaView style={styles.safe} edges={['left', 'right', 'bottom']}>
+        <View style={styles.safeInner}>
         <View style={styles.header}>
           <TouchableOpacity onPress={() => navigation.goBack()} style={styles.headerBtn}>
             <Icon name={Icons.arrowBack} size={24} color={colors.textPrimary} />
@@ -81,12 +82,14 @@ export default function InventoryModeScreen({ navigation, route }) {
             <Text style={styles.backBtnText}>{t('back')}</Text>
           </TouchableOpacity>
         </View>
+        </View>
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView style={styles.safe}>
+    <SafeAreaView style={styles.safe} edges={['left', 'right', 'bottom']}>
+      <View style={styles.safeInner}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.headerBtn}>
           <Icon name={Icons.arrowBack} size={24} color={colors.textPrimary} />
@@ -127,6 +130,7 @@ export default function InventoryModeScreen({ navigation, route }) {
           </TouchableOpacity>
         </View>
       </View>
+      </View>
     </SafeAreaView>
   );
 }
@@ -135,6 +139,9 @@ const styles = StyleSheet.create({
   safe: {
     flex: 1,
     backgroundColor: colors.background,
+  },
+  safeInner: {
+    flex: 1,
   },
   centered: {
     flex: 1,

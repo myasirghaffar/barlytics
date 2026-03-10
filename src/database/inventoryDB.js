@@ -171,6 +171,13 @@ export async function updateArea(id, name) {
   await runSql('UPDATE areas SET name = ? WHERE id = ?', [name || '', id]);
 }
 
+export async function deleteArea(id) {
+  if (!id) return;
+  // Remove products belonging to this area first to avoid orphans
+  await runSql('DELETE FROM products WHERE areaId = ?', [id]);
+  await runSql('DELETE FROM areas WHERE id = ?', [id]);
+}
+
 // --- Products ---
 export async function getProducts(areaId = null) {
   const sql = areaId

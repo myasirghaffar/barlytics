@@ -9,7 +9,6 @@ import {
   FlatList,
   TouchableOpacity,
   ActivityIndicator,
-  SafeAreaView,
   Switch,
   Modal,
   TextInput,
@@ -17,6 +16,7 @@ import {
   Platform,
   Alert,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { Icon, Icons } from "../assets/icons";
 import { useInventory } from "../context/InventoryContext";
 import { useLanguage } from "../context/LanguageContext";
@@ -28,7 +28,7 @@ import { colors, spacing } from "../theme/colors";
 const PLACEHOLDER_IMAGE = null;
 
 export default function ProductListScreen({ navigation }) {
-  const { products, currentAreaName, currentAreaId, dbReady, searchProducts, updateArea, refreshProducts, offlineDownloadEnabled, setOfflineDownloadEnabled } = useInventory();
+  const { products, currentAreaName, currentAreaId, dbReady, searchProducts, updateArea, refreshProducts, offlineDownloadEnabled, setOfflineDownloadEnabled, deleteProduct } = useInventory();
   const { t } = useLanguage();
   const [search, setSearch] = useState("");
   const [filtered, setFiltered] = useState(products);
@@ -61,12 +61,47 @@ export default function ProductListScreen({ navigation }) {
   const handleProductPress = useCallback(
     (item) => {
       if (editMode) {
-        navigation.navigate("EditProduct", { product: item });
+        Alert.alert(
+          t("editProduct") || "Edit product",
+          item?.name || "",
+          [
+            {
+              text: t("edit") || "Edit",
+              onPress: () => navigation.navigate("EditProduct", { product: item }),
+            },
+            {
+              text: t("delete") || "Delete",
+              style: "destructive",
+              onPress: () => {
+                Alert.alert(
+                  t("deleteProductTitle") || "Delete product",
+                  t("deleteProductMessage") || "Do you really want to delete this product?",
+                  [
+                    { text: t("cancel") || "Cancel", style: "cancel" },
+                    {
+                      text: t("delete") || "Delete",
+                      style: "destructive",
+                      onPress: async () => {
+                        await deleteProduct(item.id);
+                        // Keep current search filter in sync
+                        if (search.trim()) {
+                          const list = await searchProducts(search);
+                          setFiltered(list);
+                        }
+                      },
+                    },
+                  ],
+                );
+              },
+            },
+            { text: t("cancel") || "Cancel", style: "cancel" },
+          ],
+        );
       } else {
         navigation.navigate("ProductDetail", { product: item });
       }
     },
-    [navigation, editMode],
+    [navigation, editMode, t, deleteProduct, search, searchProducts],
   );
 
   const renderItem = useCallback(
@@ -77,6 +112,7 @@ export default function ProductListScreen({ navigation }) {
           volume={item.volume}
           image={item.image || PLACEHOLDER_IMAGE}
           statusOk={item.fillLevel > 25}
+          fillLevel={item.fillLevel}
           onPress={() => handleProductPress(item)}
         />
       );
@@ -133,7 +169,8 @@ export default function ProductListScreen({ navigation }) {
   }
 
   return (
-    <SafeAreaView style={styles.safe}>
+    <SafeAreaView style={styles.safe} edges={["left", "right", "bottom"]}>
+      <View style={styles.safeInner}>
       <View style={styles.header}>
         <TouchableOpacity
           onPress={() => navigation.goBack()}
@@ -263,6 +300,7 @@ export default function ProductListScreen({ navigation }) {
       </Modal>
 
       <FloatingAddButton onPress={handleAddProduct} />
+      </View>
     </SafeAreaView>
   );
 }
@@ -271,6 +309,9 @@ const styles = StyleSheet.create({
   safe: {
     flex: 1,
     backgroundColor: colors.background,
+  },
+  safeInner: {
+    flex: 1,
   },
   centered: {
     flex: 1,
@@ -335,6 +376,8 @@ const styles = StyleSheet.create({
   },
   listContent: {
     paddingBottom: 100,
+    paddingTop: spacing.md,
+    paddingHorizontal: 2,
   },
   gridListContent: {
     paddingHorizontal: 0,

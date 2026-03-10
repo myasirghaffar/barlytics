@@ -14,6 +14,7 @@ function ProductItem({
   image,
   statusOk,
   metaText,
+  fillLevel,
   onPress,
   selected,
   onSelect,
@@ -21,6 +22,17 @@ function ProductItem({
 }) {
   const resolved = getBottleImage({ name, image });
   const imageSource = resolved || (image && typeof image === 'string' ? { uri: image } : null);
+
+  const totalMl = volume != null && Number(volume) >= 0 ? Number(volume) : null;
+  const fillPct = fillLevel != null ? Math.min(100, Math.max(0, Number(fillLevel))) : null;
+  const remainingMl =
+    totalMl != null && fillPct != null ? Math.round((totalMl * fillPct) / 100) : null;
+  const volumeText =
+    totalMl != null
+      ? remainingMl != null
+        ? `${totalMl} ml / ${remainingMl} ml`
+        : `${totalMl} ml`
+      : '—';
 
   return (
     <TouchableOpacity
@@ -51,7 +63,7 @@ function ProductItem({
         <Text style={styles.name} numberOfLines={2}>{name || 'Product'}</Text>
         <View style={styles.meta}>
           <Text style={styles.volume}>
-            {volume ? `${volume} ml` : '—'}
+            {volumeText}
             {metaText ? ` - ${metaText}` : ''}
           </Text>
           {statusOk !== undefined && (
