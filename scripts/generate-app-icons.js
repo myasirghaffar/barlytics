@@ -1,5 +1,5 @@
 /**
- * Generate Android and iOS app icons from src/assets/images/AppLogo.png (Barbrain: blue bg + white logo).
+ * Generate Android and iOS app icons from barlogo.png.
  * Run: node scripts/generate-app-icons.js
  */
 const path = require('path');
@@ -7,7 +7,7 @@ const fs = require('fs');
 const sharp = require('sharp');
 
 const root = path.join(__dirname, '..');
-const logoPath = path.join(root, 'src', 'assets', 'images', 'AppLogo.png');
+const logoPath = path.join(root, 'barlogo.png');
 
 // Android: mipmap density → size in px
 const androidSizes = {
@@ -68,7 +68,7 @@ async function generate() {
     console.log('iOS:', filename, size + 'px');
   }
 
-  console.log('Done. Barbrain app icons generated from AppLogo.png');
+  console.log('Done. Barbrain app icons generated from barlogo.png');
 }
 
 generate().catch((err) => {
