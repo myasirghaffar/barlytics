@@ -169,7 +169,7 @@ export default function ProductListScreen({ navigation }) {
   }
 
   return (
-    <SafeAreaView style={styles.safe} edges={["top", "left", "right", "bottom"]}>
+    <SafeAreaView style={styles.safe} edges={["top", "left", "right"]}>
       <View style={styles.safeInner}>
       <View style={styles.header}>
         <TouchableOpacity

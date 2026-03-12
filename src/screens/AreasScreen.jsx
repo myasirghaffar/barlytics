@@ -110,7 +110,7 @@ export default function AreasScreen({ navigation }) {
     Alert.alert(
       t("deleteCategoryTitle") || "Delete category",
       t("deleteCategoryMessage") ||
-        "Do you really want to delete this category and its products?",
+      "Do you really want to delete this category and its products?",
       [
         { text: t("cancel") || "Cancel", style: "cancel" },
         {
@@ -135,7 +135,7 @@ export default function AreasScreen({ navigation }) {
   }
 
   return (
-    <SafeAreaView style={styles.safe} edges={["top", "left", "right", "bottom"]}>
+    <SafeAreaView style={styles.safe} edges={["top", "left", "right"]}>
       <View style={styles.safeInner}>
         <View style={styles.header}>
           <View style={styles.headerLeft}>
@@ -517,13 +517,14 @@ const styles = StyleSheet.create({
   },
   headerLogoWrap: {
     backgroundColor: colors.primaryBlue,
-    paddingVertical: 6,
+    // paddingVertical: 6,
     // paddingHorizontal: spacing.xs,
+    overflow: "hidden",
     borderRadius: 8,
   },
   headerLogo: {
-    height: 32,
-    width: 100,
+    height: 40,
+    width: 40,
   },
   headerIcons: {
     flexDirection: "row",
