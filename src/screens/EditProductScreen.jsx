@@ -107,7 +107,7 @@ export default function EditProductScreen({ route, navigation }) {
 
   if (!product) {
     return (
-      <SafeAreaView style={styles.safe} edges={['left', 'right', 'bottom']}>
+      <SafeAreaView style={styles.safe} edges={['top', 'left', 'right', 'bottom']}>
         <View style={styles.safeInner}>
         <View style={styles.centered}>
           <Text style={styles.errorText}>{t('noProducts')}</Text>
@@ -129,7 +129,7 @@ export default function EditProductScreen({ route, navigation }) {
   }
 
   return (
-    <SafeAreaView style={styles.safe} edges={['left', 'right', 'bottom']}>
+    <SafeAreaView style={styles.safe} edges={['top', 'left', 'right', 'bottom']}>
       <View style={styles.safeInner}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.headerBtn}>

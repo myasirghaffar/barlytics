@@ -135,7 +135,7 @@ export default function AreasScreen({ navigation }) {
   }
 
   return (
-    <SafeAreaView style={styles.safe} edges={["left", "right", "bottom"]}>
+    <SafeAreaView style={styles.safe} edges={["top", "left", "right", "bottom"]}>
       <View style={styles.safeInner}>
         <View style={styles.header}>
           <View style={styles.headerLeft}>
