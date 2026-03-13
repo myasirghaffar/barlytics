@@ -106,7 +106,8 @@ android {
                 keyAlias keystoreProperties['MYAPP_RELEASE_KEY_ALIAS']
                 keyPassword keystoreProperties['MYAPP_RELEASE_KEY_PASSWORD']
             } else {
-                storeFile file('debug.keystore')
+                def debugKeystore = file("${System.getProperty('user.home')}/.android/debug.keystore")
+                storeFile debugKeystore.exists() ? debugKeystore : file('debug.keystore')
                 storePassword 'android'
                 keyAlias 'androiddebugkey'
                 keyPassword 'android'
