@@ -18,12 +18,12 @@ const API_PREFIX = "/api/v1";
 const LOCAL_ANDROID = "http://10.0.2.2:8000";
 const LOCAL_IOS = "http://localhost:8000";
 
-// Live/production API URL - used when building APK
+// Live/production API URL - used when building APK or when local backend is unavailable
 // 1) Set REACT_APP_LIVE_API_URL env var when building, or
-// 2) Replace the default below with your deployed backend URL
+// 2) Uses the default deployed backend URL
 const LIVE_API_BASE =
   (typeof process !== "undefined" && process.env?.REACT_APP_LIVE_API_URL) ||
-  "https://api.your-domain.com"; // Replace with your live API before building APK
+  "https://barlytics-backend.techverseo.com";
 
 /**
  * Active base URL - can switch from local to live on connection failure.
