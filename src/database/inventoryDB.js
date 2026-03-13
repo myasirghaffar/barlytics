@@ -1,6 +1,6 @@
 /**
  * SQLite database for bar inventory.
- * Tables: products, areas (stations), inventory_sessions, inventory_items.
+ * Tables: products, categories, inventory_sessions, inventory_items.
  */
 import SQLite from 'react-native-sqlite-storage';
 
@@ -33,31 +33,31 @@ export async function initDB() {
 
 async function createTables() {
   const sql = [
-    `CREATE TABLE IF NOT EXISTS areas (
+    `CREATE TABLE IF NOT EXISTS categories (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       name TEXT NOT NULL UNIQUE,
       createdAt TEXT
     )`,
     `CREATE TABLE IF NOT EXISTS products (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
-      areaId INTEGER NOT NULL DEFAULT 1,
+      categoryId INTEGER NOT NULL DEFAULT 1,
       name TEXT NOT NULL,
       volume INTEGER,
       image TEXT,
-      category TEXT,
+      subCategory TEXT,
       price REAL DEFAULT 0,
       fillLevel INTEGER DEFAULT 100,
       createdAt TEXT,
-      FOREIGN KEY (areaId) REFERENCES areas(id)
+      FOREIGN KEY (categoryId) REFERENCES categories(id)
     )`,
     `CREATE TABLE IF NOT EXISTS inventory_sessions (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
-      areaId INTEGER NOT NULL,
-      areaName TEXT,
+      categoryId INTEGER NOT NULL,
+      categoryName TEXT,
       date TEXT,
       team TEXT,
       createdAt TEXT,
-      FOREIGN KEY (areaId) REFERENCES areas(id)
+      FOREIGN KEY (categoryId) REFERENCES categories(id)
     )`,
     `CREATE TABLE IF NOT EXISTS inventory_items (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -72,27 +72,27 @@ async function createTables() {
   for (const s of sql) {
     await db.executeSql(s);
   }
-  // Ensure default area exists
+  // Ensure default category exists
   await db.executeSql(
-    `INSERT OR IGNORE INTO areas (id, name, createdAt) VALUES (1, 'Cocktailstation', datetime('now'))`
+    `INSERT OR IGNORE INTO categories (id, name, createdAt) VALUES (1, 'Cocktailstation', datetime('now'))`
   );
   await seedDummyData();
 }
 
-/** Seed areas, products, and sessions so the app shows data on first run. Uses db directly to avoid runSql before init completes. */
+/** Seed categories, products, and sessions. */
 async function seedDummyData() {
   if (!db) return;
   const raw = (sql, params = []) =>
     db.executeSql(sql, params).then(([r]) => ({ rows: r.rows.raw() }));
 
   try {
-    const { rows: areaRows } = await raw('SELECT COUNT(*) as c FROM areas');
-    const areaCount = areaRows[0]?.c ?? 0;
-    if (areaCount < 4) {
-      const areas = [['Küche'], ['Lager'], ['Regal links'], ['Regal rechts']];
-      for (const [name] of areas) {
+    const { rows: catRows } = await raw('SELECT COUNT(*) as c FROM categories');
+    const catCount = catRows[0]?.c ?? 0;
+    if (catCount < 4) {
+      const cats = [['Küche'], ['Lager'], ['Regal links'], ['Regal rechts']];
+      for (const [name] of cats) {
         await db.executeSql(
-          'INSERT OR IGNORE INTO areas (name, createdAt) VALUES (?, datetime("now"))',
+          'INSERT OR IGNORE INTO categories (name, createdAt) VALUES (?, datetime("now"))',
           [name]
         );
       }
@@ -113,7 +113,7 @@ async function seedDummyData() {
       ];
       for (const p of products) {
         await db.executeSql(
-          `INSERT INTO products (areaId, name, volume, image, category, price, fillLevel, createdAt)
+          `INSERT INTO products (categoryId, name, volume, image, subCategory, price, fillLevel, createdAt)
            VALUES (1, ?, ?, ?, 'Spirits', ?, ?, datetime('now'))`,
           [p.name, p.volume, p.image || '', p.price ?? 0, p.fillLevel ?? 100]
         );
@@ -123,15 +123,15 @@ async function seedDummyData() {
     const { rows: sessionRows } = await raw('SELECT COUNT(*) as c FROM inventory_sessions');
     if ((sessionRows[0]?.c ?? 0) === 0) {
       await db.executeSql(
-        `INSERT INTO inventory_sessions (areaId, areaName, date, team, createdAt)
+        `INSERT INTO inventory_sessions (categoryId, categoryName, date, team, createdAt)
          VALUES (1, 'Cocktailstation', date('now'), 'Team A', datetime('now'))`
       );
       await db.executeSql(
-        `INSERT INTO inventory_sessions (areaId, areaName, date, team, createdAt)
+        `INSERT INTO inventory_sessions (categoryId, categoryName, date, team, createdAt)
          VALUES (2, 'Küche', date('now', '-1 day'), 'Team B', datetime('now'))`
       );
       await db.executeSql(
-        `INSERT INTO inventory_sessions (areaId, areaName, date, team, createdAt)
+        `INSERT INTO inventory_sessions (categoryId, categoryName, date, team, createdAt)
          VALUES (3, 'Lager', date('now', '-2 days'), 'To', datetime('now'))`
       );
     }
@@ -140,10 +140,6 @@ async function seedDummyData() {
   }
 }
 
-/**
- * Run a single SQL statement with params. Returns result rows.
- * Waits for init to complete so callers never see "Database not initialized".
- */
 export async function runSql(sql, params = []) {
   await initDB();
   if (!db) return Promise.reject(new Error('Database not initialized'));
@@ -155,35 +151,34 @@ export async function runSql(sql, params = []) {
   };
 }
 
-// --- Areas ---
-export async function getAreas() {
-  const { rows } = await runSql('SELECT * FROM areas ORDER BY name');
+// --- Categories ---
+export async function getCategories() {
+  const { rows } = await runSql('SELECT * FROM categories ORDER BY name');
   return rows;
 }
 
-export async function addArea(name) {
-  await runSql('INSERT INTO areas (name, createdAt) VALUES (?, datetime("now"))', [name]);
+export async function addCategory(name) {
+  await runSql('INSERT INTO categories (name, createdAt) VALUES (?, datetime("now"))', [name]);
   const { rows } = await runSql('SELECT last_insert_rowid() as id');
   return rows[0]?.id;
 }
 
-export async function updateArea(id, name) {
-  await runSql('UPDATE areas SET name = ? WHERE id = ?', [name || '', id]);
+export async function updateCategory(id, name) {
+  await runSql('UPDATE categories SET name = ? WHERE id = ?', [name || '', id]);
 }
 
-export async function deleteArea(id) {
+export async function deleteCategory(id) {
   if (!id) return;
-  // Remove products belonging to this area first to avoid orphans
-  await runSql('DELETE FROM products WHERE areaId = ?', [id]);
-  await runSql('DELETE FROM areas WHERE id = ?', [id]);
+  await runSql('DELETE FROM products WHERE categoryId = ?', [id]);
+  await runSql('DELETE FROM categories WHERE id = ?', [id]);
 }
 
 // --- Products ---
-export async function getProducts(areaId = null) {
-  const sql = areaId
-    ? 'SELECT * FROM products WHERE areaId = ? ORDER BY name'
+export async function getProducts(categoryId = null) {
+  const sql = categoryId
+    ? 'SELECT * FROM products WHERE categoryId = ? ORDER BY name'
     : 'SELECT * FROM products ORDER BY name';
-  const params = areaId ? [areaId] : [];
+  const params = categoryId ? [categoryId] : [];
   const { rows } = await runSql(sql, params);
   return rows;
 }
@@ -194,24 +189,24 @@ export async function getProductById(id) {
 }
 
 export async function addProduct(product) {
-  const { name, volume, image, category, price, fillLevel, areaId = 1 } = product;
+  const { name, volume, image, subCategory, price, fillLevel, categoryId = 1 } = product;
   await runSql(
-    `INSERT INTO products (areaId, name, volume, image, category, price, fillLevel, createdAt)
+    `INSERT INTO products (categoryId, name, volume, image, subCategory, price, fillLevel, createdAt)
      VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))`,
-    [areaId, name || '', volume || 0, image || '', category || '', Number(price) || 0, Number(fillLevel) ?? 100]
+    [categoryId, name || '', volume || 0, image || '', subCategory || '', Number(price) || 0, Number(fillLevel) ?? 100]
   );
   const { rows } = await runSql('SELECT last_insert_rowid() as id');
   return rows[0]?.id;
 }
 
-export async function addProducts(products, areaId = 1) {
+export async function addProducts(products, categoryId = 1) {
   for (const p of products) {
-    await addProduct({ ...p, areaId });
+    await addProduct({ ...p, categoryId });
   }
 }
 
 export async function updateProduct(id, updates) {
-  const allowed = ['name', 'volume', 'image', 'category', 'price', 'fillLevel'];
+  const allowed = ['name', 'volume', 'image', 'subCategory', 'price', 'fillLevel', 'categoryId'];
   const setClause = allowed.filter((k) => updates[k] !== undefined).map((k) => `${k} = ?`).join(', ');
   const values = allowed.filter((k) => updates[k] !== undefined).map((k) => updates[k]);
   if (values.length === 0) return;
@@ -230,22 +225,22 @@ export async function deleteProduct(id) {
   await runSql('DELETE FROM products WHERE id = ?', [id]);
 }
 
-export async function searchProducts(query, areaId = null) {
-  const sql = areaId
-    ? 'SELECT * FROM products WHERE areaId = ? AND name LIKE ? ORDER BY name'
+export async function searchProducts(query, categoryId = null) {
+  const sql = categoryId
+    ? 'SELECT * FROM products WHERE categoryId = ? AND name LIKE ? ORDER BY name'
     : 'SELECT * FROM products WHERE name LIKE ? ORDER BY name';
   const like = `%${(query || '').trim()}%`;
-  const params = areaId ? [areaId, like] : [like];
+  const params = categoryId ? [categoryId, like] : [like];
   const { rows } = await runSql(sql, params);
   return rows;
 }
 
 // --- Inventory sessions & reports ---
-export async function createInventorySession(areaId, areaName, team = '') {
+export async function createInventorySession(categoryId, categoryName, team = '') {
   await runSql(
-    `INSERT INTO inventory_sessions (areaId, areaName, date, team, createdAt)
+    `INSERT INTO inventory_sessions (categoryId, categoryName, date, team, createdAt)
      VALUES (?, ?, date('now'), ?, datetime('now'))`,
-    [areaId, areaName || '', team]
+    [categoryId, categoryName || '', team]
   );
   const { rows } = await runSql('SELECT last_insert_rowid() as id');
   return rows[0]?.id;
@@ -259,10 +254,10 @@ export async function getInventorySessions(limit = 50) {
   return rows;
 }
 
-export async function getProductsWithFillLevels(areaId) {
+export async function getProductsWithFillLevels(categoryId) {
   const { rows } = await runSql(
-    'SELECT id, name, volume, image, fillLevel, price FROM products WHERE areaId = ? ORDER BY name',
-    [areaId]
+    'SELECT id, name, volume, image, fillLevel, price FROM products WHERE categoryId = ? ORDER BY name',
+    [categoryId]
   );
   return rows;
 }
@@ -270,9 +265,9 @@ export async function getProductsWithFillLevels(areaId) {
 /**
  * Get report stats: total bottles, total value, low stock count.
  */
-export async function getReportStats(areaId = null) {
-  const where = areaId ? ' WHERE areaId = ?' : '';
-  const params = areaId ? [areaId] : [];
+export async function getReportStats(categoryId = null) {
+  const where = categoryId ? ' WHERE categoryId = ?' : '';
+  const params = categoryId ? [categoryId] : [];
   const { rows } = await runSql(`SELECT * FROM products${where}`, params);
   const totalBottles = rows.length;
   const totalValue = rows.reduce((sum, p) => sum + (p.price || 0), 0);

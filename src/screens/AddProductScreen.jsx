@@ -18,7 +18,7 @@ import SearchBar from "../components/SearchBar";
 import ProductItem from "../components/ProductItem";
 import { colors, spacing } from "../theme/colors";
 
-// Catalog entries (product catalogue); images resolved via bottleImages.js.
+// Catalog entries (product catalogue)
 const MOCK_CATALOG = [
   { id: "c1", name: "Botran 18 Anejo Rum", volume: 700 },
   { id: "c2", name: "Ableforths Rumbullion!", volume: 700 },
@@ -42,7 +42,7 @@ function filterCatalog(list, query) {
 }
 
 export default function AddProductScreen({ navigation }) {
-  const { addProducts, currentAreaName, dbReady } = useInventory();
+  const { addProducts, currentCategoryName, dbReady } = useInventory();
   const { t } = useLanguage();
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState(new Set());
@@ -106,7 +106,7 @@ export default function AddProductScreen({ navigation }) {
           <Icon name={Icons.arrowBack} size={24} color={colors.textPrimary} />
         </TouchableOpacity>
         <Text style={styles.headerTitle} numberOfLines={1}>
-          {currentAreaName}
+          {currentCategoryName}
         </Text>
         <TouchableOpacity
           onPress={handleAdd}
@@ -188,107 +188,24 @@ export default function AddProductScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
-  safe: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  safeInner: {
-    flex: 1,
-  },
-  centered: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: colors.background,
-  },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    backgroundColor: colors.cardBackground,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  headerBtn: {
-    padding: spacing.sm,
-    marginRight: spacing.xs,
-  },
-  headerAddBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    padding: spacing.sm,
-  },
-  addBtnIcon: {
-    marginRight: spacing.xs,
-  },
-  headerTitle: {
-    flex: 1,
-    fontSize: 18,
-    fontWeight: "700",
-    color: colors.textPrimary,
-  },
-  addBtn: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: colors.primaryBlue,
-  },
-  addBtnDisabled: {
-    color: colors.textSecondary,
-  },
-  content: {
-    flex: 1,
-    padding: spacing.md,
-  },
-  addNewCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: colors.cardBackground,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.md,
-    borderRadius: 12,
-    marginBottom: spacing.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  addNewIcon: {
-    marginRight: spacing.sm,
-  },
-  addNewText: {
-    flex: 1,
-    fontSize: 16,
-    fontWeight: "600",
-    color: colors.textPrimary,
-  },
-  searchBar: {
-    paddingBottom: spacing.md,
-  },
-  listContent: {
-    paddingBottom: spacing.xxl, 
-    paddingHorizontal: 2,
-    paddingTop: spacing.md,
-    
-  },
-  emptyWrap: {
-    alignItems: "center",
-    paddingVertical: spacing.xxl,
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.md,
-  },
-  emptyText: {
-    marginTop: spacing.md,
-    fontSize: 16,
-    color: colors.textSecondary,
-  },
-  emptyHint: {
-    marginTop: spacing.xs,
-    fontSize: 14,
-    color: colors.textSecondary,
-  },
-  savingOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(0,0,0,0.4)",
-    justifyContent: "center",
-    alignItems: "center",
-  },
+  safe: { flex: 1, backgroundColor: colors.background },
+  safeInner: { flex: 1 },
+  centered: { flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: colors.background },
+  header: { flexDirection: "row", alignItems: "center", paddingHorizontal: spacing.md, paddingVertical: spacing.sm, backgroundColor: colors.cardBackground, borderBottomWidth: 1, borderBottomColor: colors.border },
+  headerBtn: { padding: spacing.sm, marginRight: spacing.xs },
+  headerAddBtn: { flexDirection: "row", alignItems: "center", padding: spacing.sm },
+  addBtnIcon: { marginRight: spacing.xs },
+  headerTitle: { flex: 1, fontSize: 18, fontWeight: "700", color: colors.textPrimary },
+  addBtn: { fontSize: 16, fontWeight: "600", color: colors.primaryBlue },
+  addBtnDisabled: { color: colors.textSecondary },
+  content: { flex: 1, padding: spacing.md },
+  addNewCard: { flexDirection: "row", alignItems: "center", backgroundColor: colors.cardBackground, paddingVertical: spacing.md, paddingHorizontal: spacing.md, borderRadius: 12, marginBottom: spacing.md, borderWidth: 1, borderColor: colors.border },
+  addNewIcon: { marginRight: spacing.sm },
+  addNewText: { flex: 1, fontSize: 16, fontWeight: "600", color: colors.textPrimary },
+  searchBar: { paddingBottom: spacing.md },
+  listContent: { paddingBottom: spacing.xxl, paddingHorizontal: 2, paddingTop: spacing.md },
+  emptyWrap: { alignItems: "center", paddingVertical: spacing.xxl },
+  emptyText: { marginTop: spacing.md, fontSize: 16, color: colors.textSecondary },
+  emptyHint: { marginTop: spacing.xs, fontSize: 14, color: colors.textSecondary },
+  savingOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(0,0,0,0.4)", justifyContent: "center", alignItems: "center" },
 });

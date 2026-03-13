@@ -1,6 +1,5 @@
 /**
- * Areas / Stations list. Tap an area to open its Product List.
- * Pencil: edit mode (tap area to edit name). Gear: Settings. FAB: add category.
+ * Categories list. Tap a category to open its Product List.
  */
 import React, { useState, useCallback, useEffect } from "react";
 import {
@@ -27,11 +26,11 @@ import SearchBar from "../components/SearchBar";
 import FloatingAddButton from "../components/FloatingAddButton";
 import { colors, spacing, borderRadius, shadows } from "../theme/colors";
 
-const AREA_COLORS = ["#EC4899", "#3B82F6", "#10B981", "#8B5CF6", "#F59E0B"];
+const CATEGORY_COLORS = ["#EC4899", "#3B82F6", "#10B981", "#8B5CF6", "#F59E0B"];
 
-export default function AreasScreen({ navigation }) {
+export default function CategoriesScreen({ navigation }) {
   const {
-    areas,
+    categories,
     dbReady,
     setCurrentAreaId,
     setCurrentAreaName,
@@ -42,7 +41,7 @@ export default function AreasScreen({ navigation }) {
   } = useInventory();
   const { t, locale, setLocale } = useLanguage();
   const [search, setSearch] = useState("");
-  const [filtered, setFiltered] = useState(areas);
+  const [filtered, setFiltered] = useState(categories);
   const [stats, setStats] = useState({
     totalBottles: 0,
     totalValue: 0,
@@ -51,7 +50,7 @@ export default function AreasScreen({ navigation }) {
   const [editMode, setEditMode] = useState(false);
   const [addModalVisible, setAddModalVisible] = useState(false);
   const [editModalVisible, setEditModalVisible] = useState(false);
-  const [editArea, setEditArea] = useState(null);
+  const [editCategory, setEditCategory] = useState(null);
   const [categoryName, setCategoryName] = useState("");
   const [newCategoryName, setNewCategoryName] = useState("");
   const [lowStockModalVisible, setLowStockModalVisible] = useState(false);
@@ -63,17 +62,17 @@ export default function AreasScreen({ navigation }) {
 
   React.useEffect(() => {
     const q = search.trim().toLowerCase();
-    if (!q) setFiltered(areas);
+    if (!q) setFiltered(categories);
     else
       setFiltered(
-        areas.filter((a) => (a.name || "").toLowerCase().includes(q)),
+        categories.filter((c) => (c.name || "").toLowerCase().includes(q)),
       );
-  }, [search, areas]);
+  }, [search, categories]);
 
-  const onAreaPress = useCallback(
+  const onCategoryPress = useCallback(
     (item) => {
       if (editMode) {
-        setEditArea(item);
+        setEditCategory(item);
         setCategoryName(item.name || "");
         setEditModalVisible(true);
       } else {
@@ -103,14 +102,14 @@ export default function AreasScreen({ navigation }) {
 
   const saveEditCategory = useCallback(async () => {
     const name = (categoryName || "").trim();
-    if (!name || !editArea?.id) return;
-    await updateArea(editArea.id, name);
+    if (!name || !editCategory?.id) return;
+    await updateArea(editCategory.id, name);
     setEditModalVisible(false);
-    setEditArea(null);
-  }, [categoryName, editArea, updateArea]);
+    setEditCategory(null);
+  }, [categoryName, editCategory, updateArea]);
 
   const confirmDeleteCategory = useCallback(() => {
-    if (!editArea?.id) return;
+    if (!editCategory?.id) return;
     Alert.alert(
       t("deleteCategoryTitle") || "Delete category",
       t("deleteCategoryMessage") ||
@@ -121,14 +120,14 @@ export default function AreasScreen({ navigation }) {
           text: t("delete") || "Delete",
           style: "destructive",
           onPress: async () => {
-            await deleteArea(editArea.id);
+            await deleteArea(editCategory.id);
             setEditModalVisible(false);
-            setEditArea(null);
+            setEditCategory(null);
           },
         },
       ],
     );
-  }, [editArea, deleteArea, t]);
+  }, [editCategory, deleteArea, t]);
 
   if (!dbReady) {
     return (
@@ -298,21 +297,21 @@ export default function AreasScreen({ navigation }) {
             }
             renderItem={({ item, index }) => (
               <TouchableOpacity
-                style={[styles.areaCard, shadows.card]}
-                onPress={() => onAreaPress(item)}
+                style={[styles.categoryCard, shadows.card]}
+                onPress={() => onCategoryPress(item)}
                 activeOpacity={0.7}
               >
                 <View
                   style={[
-                    styles.areaIcon,
+                    styles.categoryIcon,
                     {
-                      backgroundColor: AREA_COLORS[index % AREA_COLORS.length],
+                      backgroundColor: CATEGORY_COLORS[index % CATEGORY_COLORS.length],
                     },
                   ]}
                 >
                   <Icon name={Icons.clipboard} size={24} color={colors.white} />
                 </View>
-                <Text style={styles.areaName}>{item.name}</Text>
+                <Text style={styles.categoryName}>{item.name}</Text>
                 {item.lastSession && (
                   <View style={styles.statusBadge}>
                     <Text style={styles.statusText}>{item.lastSession}</Text>
@@ -414,7 +413,6 @@ export default function AreasScreen({ navigation }) {
                     </View>
                   }
                   renderItem={({ item }) => {
-                    const area = areas.find((a) => a.id === item.areaId);
                     return (
                       <View style={styles.lowStockRow}>
                         <Text style={styles.lowStockRowName} numberOfLines={1}>
@@ -423,7 +421,6 @@ export default function AreasScreen({ navigation }) {
                         <Text style={styles.lowStockRowMeta}>
                           {item.volume ? `${item.volume} ml` : ""} ·{" "}
                           {t("fillLevel") || "Fill"}: {item.fillLevel ?? 100}%
-                          {area?.name ? ` · ${area.name}` : ""}
                         </Text>
                       </View>
                     );
@@ -521,8 +518,6 @@ const styles = StyleSheet.create({
   },
   headerLogoWrap: {
     backgroundColor: colors.primaryBlue,
-    // paddingVertical: 6,
-    // paddingHorizontal: spacing.xs,
     overflow: "hidden",
     borderRadius: 8,
   },
@@ -641,7 +636,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 2,
     paddingTop: spacing.xs,
   },
-  areaCard: {
+  categoryCard: {
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: colors.cardBackground,
@@ -649,7 +644,7 @@ const styles = StyleSheet.create({
     padding: spacing.md,
     marginBottom: spacing.sm,
   },
-  areaIcon: {
+  categoryIcon: {
     width: 44,
     height: 44,
     borderRadius: 8,
@@ -657,7 +652,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     marginRight: spacing.md,
   },
-  areaName: {
+  categoryName: {
     flex: 1,
     fontSize: 16,
     fontWeight: "600",

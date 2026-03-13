@@ -1,5 +1,5 @@
 /**
- * SCREEN 1 — Product List (Main). Station name, search, product list, FAB. Tap product to open detail.
+ * SCREEN 1 — Product List (Main). Category name, search, product list, FAB. Tap product to open detail.
  */
 import React, { useState, useCallback } from "react";
 import {
@@ -28,14 +28,25 @@ import { colors, spacing } from "../theme/colors";
 const PLACEHOLDER_IMAGE = null;
 
 export default function ProductListScreen({ navigation }) {
-  const { products, currentAreaName, currentAreaId, dbReady, searchProducts, updateArea, refreshProducts, offlineDownloadEnabled, setOfflineDownloadEnabled, deleteProduct } = useInventory();
+  const { 
+    products, 
+    currentCategoryName, 
+    currentCategoryId, 
+    dbReady, 
+    searchProducts, 
+    updateArea, 
+    refreshProducts, 
+    offlineDownloadEnabled, 
+    setOfflineDownloadEnabled, 
+    deleteProduct 
+  } = useInventory();
   const { t } = useLanguage();
   const [search, setSearch] = useState("");
   const [filtered, setFiltered] = useState(products);
   const [viewMode, setViewMode] = useState("list"); // 'list' | 'grid'
   const [editMode, setEditMode] = useState(false); // pencil on: tap item to edit
-  const [editAreaVisible, setEditAreaVisible] = useState(false);
-  const [editAreaName, setEditAreaName] = useState(currentAreaName);
+  const [editCategoryVisible, setEditCategoryVisible] = useState(false);
+  const [editCategoryName, setEditCategoryName] = useState(currentCategoryName);
 
   const doSearch = useCallback(
     async (text) => {
@@ -130,18 +141,18 @@ export default function ProductListScreen({ navigation }) {
     setEditMode((prev) => !prev);
   }, []);
 
-  const openEditArea = useCallback(() => {
-    setEditAreaName(currentAreaName);
-    setEditAreaVisible(true);
-  }, [currentAreaName]);
+  const openEditCategory = useCallback(() => {
+    setEditCategoryName(currentCategoryName);
+    setEditCategoryVisible(true);
+  }, [currentCategoryName]);
 
-  const saveAreaName = useCallback(async () => {
-    const name = (editAreaName || "").trim();
-    if (name && currentAreaId) {
-      await updateArea(currentAreaId, name);
-      setEditAreaVisible(false);
+  const saveCategoryName = useCallback(async () => {
+    const name = (editCategoryName || "").trim();
+    if (name && currentCategoryId) {
+      await updateArea(currentCategoryId, name);
+      setEditCategoryVisible(false);
     }
-  }, [editAreaName, currentAreaId, updateArea]);
+  }, [editCategoryName, currentCategoryId, updateArea]);
 
   const toggleViewMode = useCallback(() => {
     setViewMode((prev) => (prev === "list" ? "grid" : "list"));
@@ -180,11 +191,11 @@ export default function ProductListScreen({ navigation }) {
         </TouchableOpacity>
         <TouchableOpacity
           style={styles.headerCenter}
-          onLongPress={openEditArea}
+          onLongPress={openEditCategory}
           delayLongPress={400}
         >
           <Text style={styles.headerTitle} numberOfLines={1}>
-            {currentAreaName}
+            {currentCategoryName}
           </Text>
         </TouchableOpacity>
         <View style={styles.headerRight}>
@@ -260,15 +271,15 @@ export default function ProductListScreen({ navigation }) {
       </View>
 
       <Modal
-        visible={editAreaVisible}
+        visible={editCategoryVisible}
         transparent
         animationType="fade"
-        onRequestClose={() => setEditAreaVisible(false)}
+        onRequestClose={() => setEditCategoryVisible(false)}
       >
         <TouchableOpacity
           style={styles.modalOverlay}
           activeOpacity={1}
-          onPress={() => setEditAreaVisible(false)}
+          onPress={() => setEditCategoryVisible(false)}
         >
           <KeyboardAvoidingView
             behavior={Platform.OS === "ios" ? "padding" : undefined}
@@ -279,17 +290,17 @@ export default function ProductListScreen({ navigation }) {
                 <Text style={styles.editAreaTitle}>{t("area")}</Text>
                 <TextInput
                   style={styles.editAreaInput}
-                  value={editAreaName}
-                  onChangeText={setEditAreaName}
-                  placeholder={currentAreaName}
+                  value={editCategoryName}
+                  onChangeText={setEditCategoryName}
+                  placeholder={currentCategoryName}
                   placeholderTextColor={colors.textSecondary}
                   autoFocus
                 />
                 <View style={styles.editAreaActions}>
-                  <TouchableOpacity style={styles.editAreaBtn} onPress={() => setEditAreaVisible(false)}>
+                  <TouchableOpacity style={styles.editAreaBtn} onPress={() => setEditCategoryVisible(false)}>
                     <Text style={styles.editAreaBtnTextCancel}>{t("cancel")}</Text>
                   </TouchableOpacity>
-                  <TouchableOpacity style={styles.editAreaBtn} onPress={saveAreaName}>
+                  <TouchableOpacity style={styles.editAreaBtn} onPress={saveCategoryName}>
                     <Text style={styles.editAreaBtnTextSave}>{t("save")}</Text>
                   </TouchableOpacity>
                 </View>

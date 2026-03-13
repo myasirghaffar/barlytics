@@ -3,6 +3,7 @@
  * In dev mode: uses local URL first; falls back to live URL if local is unavailable.
  */
 import axios from 'axios';
+import RNFS from 'react-native-fs';
 import {
   getApiFullUrl,
   switchToLiveUrl,
@@ -88,54 +89,72 @@ async function handleResponse(res) {
   return data?.data ?? data;
 }
 
-async function handleError(err) {
-  const msg = err.response?.data?.message || err.message || 'Network error';
-  throw new Error(msg);
+async function imageToBase64(uri) {
+  if (!uri || typeof uri !== 'string') return '';
+  if (uri.startsWith('data:image')) return uri; // Already base64
+  if (!uri.startsWith('file://') && !uri.startsWith('/')) return uri; // URL
+
+  try {
+    const path = uri.startsWith('file://') ? uri.replace('file://', '') : uri;
+    const base64 = await RNFS.readFile(path, 'base64');
+    const ext = path.split('.').pop().toLowerCase() || 'jpeg';
+    return `data:image/${ext === 'jpg' ? 'jpeg' : ext};base64,${base64}`;
+  } catch (e) {
+    console.warn('Failed to convert image to base64:', e.message);
+    return uri;
+  }
 }
 
 export async function initDB() {
   return true;
 }
 
-export async function getAreas() {
+// Categories (Formerly Areas)
+export async function getCategories() {
   try {
     const data = await handleResponse(await api.get('categories'));
     const list = Array.isArray(data) ? data : [];
-    // Map _id to id for frontend compatibility
-    return list.map(a => ({ ...a, id: a._id || a.id }));
+    return list.map(c => ({ ...c, id: c._id || c.id }));
   } catch (e) {
     if (e?.message) throw e;
-    throw new Error('Failed to load areas');
+    throw new Error('Failed to load categories');
   }
 }
 
-export async function addArea(name) {
+export async function addCategory(name) {
   try {
     const data = await handleResponse(await api.post('categories', { name }));
     return data?.id ?? data?._id;
   } catch (e) {
-    throw new Error(e?.message || 'Failed to add area');
+    throw new Error(e?.message || 'Failed to add category');
   }
 }
 
-export async function updateArea(id, name) {
+export async function updateCategory(id, name) {
   await api.put(`categories/${id}`, { name });
 }
 
-export async function deleteArea(id) {
+export async function deleteCategory(id) {
   await api.delete(`categories/${id}`);
 }
 
-export async function getProducts(areaId = null) {
-  const params = areaId ? { categoryId: areaId } : {};
+// Sub-Categories (Formerly Categories)
+export async function getSubCategories() {
+  const data = await handleResponse(await api.get('sub-categories'));
+  return Array.isArray(data) ? data : [];
+}
+
+// Products
+export async function getProducts(categoryId = null) {
+  const params = categoryId ? { categoryId } : {};
   const data = await handleResponse(await api.get('products', { params }));
   const list = Array.isArray(data) ? data : [];
   return list.map(p => ({
     ...p,
     id: p._id || p.id,
-    volume: p.unitSize,
-    image: p.imageURL,
-    areaId: p.categoryId,
+    volume: p.volume || p.unitSize,
+    image: p.image || p.imageURL,
+    categoryId: p.categoryId,
   }));
 }
 
@@ -145,30 +164,37 @@ export async function getProductById(id) {
 }
 
 export async function addProduct(product) {
+  const image = await imageToBase64(product.image);
   const payload = {
-    categoryId: product.areaId,
+    categoryId: product.categoryId,
     name: String(product.name || '').trim(),
-    unitSize: Math.max(0, Number(product.volume) || 0),
-    imageURL: product.image ?? '',
+    volume: Math.max(0, Number(product.volume) || 0),
+    image: image ?? '',
     price: Math.max(0, Number(product.price) || 0),
     fillLevel: Math.min(100, Math.max(0, Number(product.fillLevel) || 100)),
   };
+  if (product.subCategoryId) payload.subCategoryId = product.subCategoryId;
+  if (product.subCategory) payload.subCategory = product.subCategory;
+
   const data = await handleResponse(await api.post('products', payload));
   return data?.id ?? data?._id;
 }
 
-export async function addProducts(products, areaId = 1) {
+export async function addProducts(products, categoryId) {
   for (const p of products) {
-    await addProduct({ ...p, areaId });
+    await addProduct({ ...p, categoryId });
   }
 }
 
 export async function updateProduct(id, updates) {
   const payload = {};
   if (updates.name !== undefined) payload.name = updates.name;
-  if (updates.volume !== undefined) payload.unitSize = updates.volume;
-  if (updates.image !== undefined) payload.imageURL = updates.image;
-  if (updates.areaId !== undefined) payload.categoryId = updates.areaId;
+  if (updates.volume !== undefined) payload.volume = updates.volume;
+  if (updates.image !== undefined) {
+    payload.image = await imageToBase64(updates.image);
+  }
+  if (updates.categoryId !== undefined) payload.categoryId = updates.categoryId;
+  if (updates.subCategoryId !== undefined) payload.subCategoryId = updates.subCategoryId;
   if (updates.price !== undefined) payload.price = updates.price;
   if (updates.fillLevel !== undefined) payload.fillLevel = updates.fillLevel;
   
@@ -177,38 +203,38 @@ export async function updateProduct(id, updates) {
 }
 
 export async function updateProductFillLevel(id, fillLevel) {
-  await updateProduct(id, { fillLevel: Math.round(fillLevel) });
+  await api.patch(`products/${id}/fillLevel`, { fillLevel: Math.round(fillLevel) });
 }
 
 export async function updateProductPrice(id, price) {
-  await updateProduct(id, { price });
+  await api.patch(`products/${id}/price`, { price });
 }
 
 export async function deleteProduct(id) {
   await api.delete(`products/${id}`);
 }
 
-export async function searchProducts(query, areaId = null) {
+export async function searchProducts(query, categoryId = null) {
   const params = { q: (query || '').trim() };
-  if (areaId) params.categoryId = areaId;
-  const data = await handleResponse(await api.get('products', { params }));
+  if (categoryId) params.categoryId = categoryId;
+  const data = await handleResponse(await api.get('products/search', { params }));
   const list = Array.isArray(data) ? data : [];
   return list.map(p => ({
     ...p,
     id: p._id || p.id,
-    volume: p.unitSize,
-    image: p.imageURL,
-    areaId: p.categoryId,
+    volume: p.volume || p.unitSize,
+    image: p.image || p.imageURL,
+    categoryId: p.categoryId,
   }));
 }
 
-export async function createInventorySession(areaId, areaName, team = '') {
+export async function createInventorySession(categoryId, categoryName, team = '') {
   const data = await handleResponse(
     await api.post('inventory', {
-      categoryId: areaId,
-      areaName: areaName || '',
+      categoryId,
+      categoryName: categoryName || '',
       team: team || '',
-      items: [], // Backend might expect initial items
+      items: [],
     })
   );
   return data?.id ?? data?._id;
@@ -221,15 +247,15 @@ export async function getInventorySessions(limit = 50) {
   return Array.isArray(data) ? data : [];
 }
 
-export async function getProductsWithFillLevels(areaId) {
+export async function getProductsWithFillLevels(categoryId) {
   const data = await handleResponse(
-    await api.get('products', { params: { areaId } })
+    await api.get('products', { params: { categoryId } })
   );
   return Array.isArray(data) ? data : [];
 }
 
-export async function getReportStats(areaId = null) {
-  const params = areaId ? { categoryId: areaId } : {};
+export async function getReportStats(categoryId = null) {
+  const params = categoryId ? { categoryId } : {};
   const data = await handleResponse(
     await api.get('inventory/report', { params })
   );
@@ -240,9 +266,9 @@ export async function getReportStats(areaId = null) {
     products: (data?.products ?? []).map(p => ({
       ...p,
       id: p._id || p.id,
-      volume: p.unitSize,
-      image: p.imageURL,
-      areaId: p.categoryId,
+      volume: p.volume || p.unitSize,
+      image: p.image || p.imageURL,
+      categoryId: p.categoryId,
     })),
   };
 }

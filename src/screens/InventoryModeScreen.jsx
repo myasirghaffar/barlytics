@@ -18,7 +18,7 @@ import BottleFillSlider from '../components/BottleFillSlider';
 import { colors, spacing } from '../theme/colors';
 
 export default function InventoryModeScreen({ navigation, route }) {
-  const { getProductsWithFillLevels, updateFillLevel, currentAreaId } = useInventory();
+  const { getProductsWithFillLevels, updateFillLevel, currentCategoryId } = useInventory();
   const { t } = useLanguage();
   const [products, setProducts] = useState([]);
   const [index, setIndex] = useState(0);
@@ -28,11 +28,11 @@ export default function InventoryModeScreen({ navigation, route }) {
   const product = products[index] || null;
 
   const loadProducts = useCallback(async () => {
-    const list = await getProductsWithFillLevels(currentAreaId);
+    const list = await getProductsWithFillLevels(currentCategoryId);
     setProducts(list);
     setIndex(0);
     setLoading(false);
-  }, [getProductsWithFillLevels, currentAreaId]);
+  }, [getProductsWithFillLevels, currentCategoryId]);
 
   useEffect(() => {
     loadProducts();
@@ -136,111 +136,24 @@ export default function InventoryModeScreen({ navigation, route }) {
 }
 
 const styles = StyleSheet.create({
-  safe: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  safeInner: {
-    flex: 1,
-  },
-  centered: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    backgroundColor: colors.cardBackground,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  headerBtn: {
-    padding: spacing.sm,
-    minWidth: 40,
-  },
-  headerTitle: {
-    flex: 1,
-    fontSize: 18,
-    fontWeight: '700',
-    color: colors.textPrimary,
-    textAlign: 'center',
-  },
-  main: {
-    flex: 1,
-    justifyContent: 'center',
-  },
-  emptyText: {
-    fontSize: 16,
-    color: colors.textSecondary,
-    marginBottom: spacing.xl,
-  },
-  emptyIcon: {
-    marginBottom: spacing.lg,
-  },
-  backBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.primaryBlue,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.xl,
-    borderRadius: 12,
-  },
-  backBtnIcon: {
-    marginRight: spacing.sm,
-  },
-  backBtnText: {
-    color: colors.white,
-    fontWeight: '600',
-  },
-  quantitySection: {
-    paddingVertical: spacing.xl,
-    paddingHorizontal: spacing.xxl,
-    alignItems: 'center',
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-    backgroundColor: colors.cardBackground,
-  },
-  quantityLabel: {
-    fontSize: 14,
-    color: colors.textSecondary,
-    marginBottom: spacing.sm,
-  },
-  quantityRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xl,
-  },
-  quantityBtn: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: colors.primaryBlue,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  quantityValueWrap: {
-    alignItems: 'center',
-    minWidth: 100,
-  },
-  quantityCircle: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    backgroundColor: colors.border,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 4,
-  },
-  quantityNumber: {
-    fontSize: 32,
-    fontWeight: '700',
-    color: colors.textPrimary,
-  },
-  quantitySub: {
-    fontSize: 13,
-    color: colors.textSecondary,
-  },
+  safe: { flex: 1, backgroundColor: colors.background },
+  safeInner: { flex: 1 },
+  centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: spacing.md, paddingVertical: spacing.sm, backgroundColor: colors.cardBackground, borderBottomWidth: 1, borderBottomColor: colors.border },
+  headerBtn: { padding: spacing.sm, minWidth: 40 },
+  headerTitle: { flex: 1, fontSize: 18, fontWeight: '700', color: colors.textPrimary, textAlign: 'center' },
+  main: { flex: 1, justifyContent: 'center' },
+  emptyText: { fontSize: 16, color: colors.textSecondary, marginBottom: spacing.xl },
+  emptyIcon: { marginBottom: spacing.lg },
+  backBtn: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.primaryBlue, paddingVertical: spacing.md, paddingHorizontal: spacing.xl, borderRadius: 12 },
+  backBtnIcon: { marginRight: spacing.sm },
+  backBtnText: { color: colors.white, fontWeight: '600' },
+  quantitySection: { paddingVertical: spacing.xl, paddingHorizontal: spacing.xxl, alignItems: 'center', borderTopWidth: 1, borderTopColor: colors.border, backgroundColor: colors.cardBackground },
+  quantityLabel: { fontSize: 14, color: colors.textSecondary, marginBottom: spacing.sm },
+  quantityRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.xl },
+  quantityBtn: { width: 56, height: 56, borderRadius: 28, backgroundColor: colors.primaryBlue, alignItems: 'center', justifyContent: 'center' },
+  quantityValueWrap: { alignItems: 'center', minWidth: 100 },
+  quantityCircle: { width: 72, height: 72, borderRadius: 36, backgroundColor: colors.border, alignItems: 'center', justifyContent: 'center', marginBottom: 4 },
+  quantityNumber: { fontSize: 32, fontWeight: '700', color: colors.textPrimary },
+  quantitySub: { fontSize: 13, color: colors.textSecondary },
 });

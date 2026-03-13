@@ -23,7 +23,7 @@ import { colors, spacing, borderRadius, shadows } from "../theme/colors";
 import RNFS from "react-native-fs";
 
 export default function ReportsScreen({ navigation }) {
-  const { getReportStats, getSessions, dbReady, areas } = useInventory();
+  const { getReportStats, getSessions, dbReady, categories } = useInventory();
   const { t, locale } = useLanguage();
   const [stats, setStats] = useState({
     totalBottles: 0,
@@ -38,7 +38,7 @@ export default function ReportsScreen({ navigation }) {
   const [exportingExcel, setExportingExcel] = useState(false);
 
   const load = useCallback(async () => {
-    // Use global stats (all areas) so numbers match AreasScreen header
+    // Use global stats (all categories)
     const [s, sess] = await Promise.all([getReportStats(null), getSessions()]);
     setStats(s);
     setSessions(sess || []);
@@ -92,13 +92,13 @@ export default function ReportsScreen({ navigation }) {
       try {
         generatePDF = require("react-native-html-to-pdf").generatePDF;
       } catch (_) {
-        Alert.alert(t("error") || "Error", "PDF export is not available. Rebuild the app after installing react-native-html-to-pdf.");
+        Alert.alert(t("error") || "Error", "PDF export is not available. Rebuild the app.");
         return;
       }
       const sessionsRows = sessions
         .map(
           (s) =>
-            `<tr><td>${(s.areaName || "—").replace(/</g, "&lt;")}</td><td>${formatDate(s.date || s.createdAt)}</td><td>${(s.team || "—").replace(/</g, "&lt;")}</td></tr>`
+            `<tr><td>${(s.categoryName || s.areaName || "—").replace(/</g, "&lt;")}</td><td>${formatDate(s.date || s.createdAt)}</td><td>${(s.team || "—").replace(/</g, "&lt;")}</td></tr>`
         )
         .join("");
       const html = `
@@ -119,8 +119,7 @@ th{background:#f4f6f8;}
 <div class="card">${t("stockValue") || "Stock value"}<strong>${formatCurrency(stats.totalValue)}</strong></div>
 <div class="card">${t("lowStock") || "Low stock"}<strong>${stats.lowStock}</strong></div>
 </div>
-<h2>${(t("area") || "Area").replace(/</g, "&lt;")} / ${(t("date") || "Date").replace(/</g, "&lt;")} / ${(t("team") || "Team").replace(/</g, "&lt;")}</h2>
-<table><thead><tr><th>${t("area") || "Area"}</th><th>${t("date") || "Date"}</th><th>${t("team") || "Team"}</th></tr></thead>
+<table><thead><tr><th>${t("area") || "Category"}</th><th>${t("date") || "Date"}</th><th>${t("team") || "Team"}</th></tr></thead>
 <tbody>${sessionsRows || "<tr><td colspan=\"3\">—</td></tr>"}</tbody></table>
 </body></html>`;
       const result = await generatePDF({
@@ -129,7 +128,6 @@ th{background:#f4f6f8;}
       });
       const path = result?.filePath;
       if (path) await shareFile(Platform.OS === "ios" ? path : `file://${path}`, "application/pdf", t("exportPdf") || "Export PDF");
-      else Alert.alert(t("error") || "Error", "PDF could not be created.");
     } catch (e) {
       Alert.alert(t("error") || "Error", e?.message || "PDF export failed.");
     } finally {
@@ -148,9 +146,9 @@ th{background:#f4f6f8;}
         [t("stockValue") || "Stock value", formatCurrency(stats.totalValue)],
         [t("lowStock") || "Low stock", stats.lowStock],
         [],
-        [t("area") || "Area", t("date") || "Date", t("team") || "Team"],
+        [t("area") || "Category", t("date") || "Date", t("team") || "Team"],
         ...sessions.map((s) => [
-          s.areaName || "—",
+          s.categoryName || s.areaName || "—",
           formatDate(s.date || s.createdAt),
           s.team || "—",
         ]),
@@ -227,86 +225,37 @@ th{background:#f4f6f8;}
               <Icon
                 name={Icons.warning}
                 size={28}
-                color={
-                  stats.lowStock > 0 ? colors.danger : colors.textSecondary
-                }
+                color={stats.lowStock > 0 ? colors.danger : colors.textSecondary}
                 style={styles.statIcon}
               />
-              <Text
-                style={[
-                  styles.statValue,
-                  stats.lowStock > 0 && styles.lowStock,
-                ]}
-              >
+              <Text style={[styles.statValue, stats.lowStock > 0 && styles.lowStock]}>
                 {stats.lowStock}
               </Text>
               <Text style={styles.statLabel}>{t("lowStock")}</Text>
             </TouchableOpacity>
           </View>
 
-          <Modal
-            visible={lowStockModalVisible}
-            transparent
-            animationType="fade"
-          >
-            <TouchableOpacity
-              style={styles.modalOverlay}
-              activeOpacity={1}
-              onPress={() => setLowStockModalVisible(false)}
-            >
-              <TouchableOpacity
-                activeOpacity={1}
-                onPress={(e) => e.stopPropagation()}
-              >
+          <Modal visible={lowStockModalVisible} transparent animationType="fade">
+            <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setLowStockModalVisible(false)}>
+              <TouchableOpacity activeOpacity={1} onPress={(e) => e.stopPropagation()}>
                 <View style={styles.lowStockModalBox}>
                   <View style={styles.lowStockModalHeader}>
-                    <Text style={styles.lowStockModalTitle}>
-                      {t("lowStock")}
-                    </Text>
-                    <TouchableOpacity
-                      onPress={() => setLowStockModalVisible(false)}
-                    >
-                      <Icon
-                        name={Icons.close}
-                        size={24}
-                        color={colors.textSecondary}
-                      />
+                    <Text style={styles.lowStockModalTitle}>{t("lowStock")}</Text>
+                    <TouchableOpacity onPress={() => setLowStockModalVisible(false)}>
+                      <Icon name={Icons.close} size={24} color={colors.textSecondary} />
                     </TouchableOpacity>
                   </View>
                   <FlatList
-                    data={(stats.products || []).filter(
-                      (p) => (p.fillLevel ?? 100) < 25,
-                    )}
+                    data={(stats.products || []).filter((p) => (p.fillLevel ?? 100) < 25)}
                     keyExtractor={(item) => String(item.id)}
                     style={styles.lowStockList}
-                    ListEmptyComponent={
-                      <View style={styles.lowStockEmpty}>
-                        <Icon
-                          name={Icons.check}
-                          size={32}
-                          color={colors.accentGreen}
-                        />
-                        <Text style={styles.lowStockEmptyText}>
-                          {t("noLowStockProducts") || "No low stock products"}
-                        </Text>
-                      </View>
-                    }
                     renderItem={({ item }) => {
-                      const area = (areas || []).find(
-                        (a) => a.id === item.areaId,
-                      );
                       return (
                         <View style={styles.lowStockRow}>
-                          <Text
-                            style={styles.lowStockRowName}
-                            numberOfLines={1}
-                          >
-                            {item.name}
-                          </Text>
+                          <Text style={styles.lowStockRowName} numberOfLines={1}>{item.name}</Text>
                           <Text style={styles.lowStockRowMeta}>
                             {item.volume ? `${item.volume} ml` : ""} ·{" "}
                             {t("fillLevel") || "Fill"}: {item.fillLevel ?? 100}%
-                            {area?.name ? ` · ${area.name}` : ""}
                           </Text>
                         </View>
                       );
@@ -325,20 +274,14 @@ th{background:#f4f6f8;}
             </View>
             {sessions.length === 0 ? (
               <View style={styles.emptyWrap}>
-                <Icon
-                  name={Icons.history}
-                  size={48}
-                  color={colors.textSecondary}
-                />
+                <Icon name={Icons.history} size={48} color={colors.textSecondary} />
                 <Text style={styles.empty}>{t("noSessionsYet")}</Text>
               </View>
             ) : (
               sessions.map((s) => (
                 <View key={s.id} style={styles.sessionRow}>
-                  <Text style={styles.cell}>{s.areaName || "—"}</Text>
-                  <Text style={styles.cell}>
-                    {formatDate(s.date || s.createdAt)}
-                  </Text>
+                  <Text style={styles.cell}>{s.categoryName || s.areaName || "—"}</Text>
+                  <Text style={styles.cell}>{formatDate(s.date || s.createdAt)}</Text>
                   <View style={styles.teamBadge}>
                     <Text style={styles.teamText}>{s.team || "To"}</Text>
                   </View>
@@ -348,28 +291,12 @@ th{background:#f4f6f8;}
           </View>
 
           <View style={styles.exportRow}>
-            <TouchableOpacity
-              style={[styles.exportBtn, exportingPdf && styles.exportBtnDisabled]}
-              onPress={handleExportPdf}
-              disabled={exportingPdf}
-            >
-              {exportingPdf ? (
-                <ActivityIndicator size="small" color={colors.white} />
-              ) : (
-                <Icon name={Icons.pictureAsPdf} size={22} color={colors.white} />
-              )}
+            <TouchableOpacity style={[styles.exportBtn, exportingPdf && styles.exportBtnDisabled]} onPress={handleExportPdf} disabled={exportingPdf}>
+              {exportingPdf ? <ActivityIndicator size="small" color={colors.white} /> : <Icon name={Icons.pictureAsPdf} size={22} color={colors.white} />}
               <Text style={styles.exportBtnText}>{t("exportPdf")}</Text>
             </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.exportBtn, exportingExcel && styles.exportBtnDisabled]}
-              onPress={handleExportExcel}
-              disabled={exportingExcel}
-            >
-              {exportingExcel ? (
-                <ActivityIndicator size="small" color={colors.white} />
-              ) : (
-                <Icon name={Icons.tableChart} size={22} color={colors.white} />
-              )}
+            <TouchableOpacity style={[styles.exportBtn, exportingExcel && styles.exportBtnDisabled]} onPress={handleExportExcel} disabled={exportingExcel}>
+              {exportingExcel ? <ActivityIndicator size="small" color={colors.white} /> : <Icon name={Icons.tableChart} size={22} color={colors.white} />}
               <Text style={styles.exportBtnText}>{t("exportExcel")}</Text>
             </TouchableOpacity>
           </View>
@@ -380,200 +307,40 @@ th{background:#f4f6f8;}
 }
 
 const styles = StyleSheet.create({
-  safe: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  safeInner: {
-    flex: 1,
-  },
-  centered: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  header: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    backgroundColor: colors.cardBackground,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  headerLeft: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  headerIcon: {
-    marginRight: spacing.sm,
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: colors.textPrimary,
-  },
-  content: {
-    flex: 1,
-  },
-  contentInner: {
-    padding: spacing.md,
-    paddingBottom: 100,
-  },
-  statsRow: {
-    flexDirection: "row",
-    gap: spacing.sm,
-    marginBottom: spacing.xl,
-  },
-  statCard: {
-    flex: 1,
-    backgroundColor: colors.cardBackground,
-    borderRadius: borderRadius.md,
-    padding: spacing.md,
-    alignItems: "center",
-  },
-  statIcon: {
-    marginBottom: spacing.sm,
-  },
-  statValue: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: colors.textPrimary,
-  },
-  lowStock: {
-    color: colors.danger,
-  },
-  statLabel: {
-    fontSize: 12,
-    color: colors.textSecondary,
-    marginTop: 4,
-  },
-  section: {
-    marginBottom: spacing.xl,
-    
-  },
-  tableHeader: {
-    flexDirection: "row",
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    backgroundColor: colors.background,
-    borderRadius: borderRadius.sm,
-    marginBottom: spacing.xs,
-    gap: spacing.xxl * 4.5,
-  },
-  th: {
-    flex: 1,
-    fontSize: 12,
-    color: colors.textSecondary,
-    fontWeight: "600",
-  },
-  sessionRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.md,
-    backgroundColor: colors.cardBackground,
-    borderRadius: borderRadius.md,
-    marginBottom: spacing.sm,
-    ...shadows.card,
-  },
-  cell: {
-    flex: 1,
-    fontSize: 14,
-    color: colors.textPrimary,
-  },
-  teamBadge: {
-    backgroundColor: colors.accentYellow,
-    paddingVertical: 4,
-    paddingHorizontal: 10,
-    borderRadius: borderRadius.full,
-  },
-  teamText: {
-    fontSize: 12,
-    fontWeight: "600",
-    color: colors.textPrimary,
-  },
-  emptyWrap: {
-    alignItems: "center",
-    padding: spacing.xl,
-  },
-  empty: {
-    textAlign: "center",
-    color: colors.textSecondary,
-    marginTop: spacing.md,
-  },
-  exportRow: {
-    flexDirection: "row",
-    gap: spacing.md,
-    marginTop: spacing.lg,
-  },
-  exportBtn: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: spacing.sm,
-    backgroundColor: colors.primaryBlue,
-    paddingVertical: spacing.md,
-    borderRadius: borderRadius.md,
-  },
-  exportBtnText: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: colors.white,
-  },
-  exportBtnDisabled: {
-    opacity: 0.7,
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.5)",
-    justifyContent: "center",
-  },
-  lowStockModalBox: {
-    backgroundColor: colors.cardBackground,
-    borderRadius: borderRadius.lg,
-    marginHorizontal: spacing.lg,
-    maxHeight: "90%",
-  },
-  lowStockModalHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  lowStockModalTitle: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: colors.textPrimary,
-  },
-  lowStockList: {
-    maxHeight: 320,
-  },
-  lowStockEmpty: {
-    alignItems: "center",
-    padding: spacing.xl,
-  },
-  lowStockEmptyText: {
-    marginTop: spacing.sm,
-    fontSize: 14,
-    color: colors.textSecondary,
-  },
-  lowStockRow: {
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  lowStockRowName: {
-    fontSize: 15,
-    fontWeight: "600",
-    color: colors.textPrimary,
-  },
-  lowStockRowMeta: {
-    fontSize: 12,
-    color: colors.textSecondary,
-    marginTop: 2,
-  },
+  safe: { flex: 1, backgroundColor: colors.background },
+  safeInner: { flex: 1 },
+  centered: { flex: 1, justifyContent: "center", alignItems: "center" },
+  header: { paddingHorizontal: spacing.md, paddingVertical: spacing.sm, backgroundColor: colors.cardBackground, borderBottomWidth: 1, borderBottomColor: colors.border },
+  headerLeft: { flexDirection: "row", alignItems: "center" },
+  headerIcon: { marginRight: spacing.sm },
+  headerTitle: { fontSize: 18, fontWeight: "700", color: colors.textPrimary },
+  content: { flex: 1 },
+  contentInner: { padding: spacing.md, paddingBottom: 100 },
+  statsRow: { flexDirection: "row", gap: spacing.sm, marginBottom: spacing.xl },
+  statCard: { flex: 1, backgroundColor: colors.cardBackground, borderRadius: borderRadius.md, padding: spacing.md, alignItems: "center" },
+  statIcon: { marginBottom: spacing.sm },
+  statValue: { fontSize: 18, fontWeight: "700", color: colors.textPrimary },
+  lowStock: { color: colors.danger },
+  statLabel: { fontSize: 12, color: colors.textSecondary, marginTop: 4 },
+  section: { marginBottom: spacing.xl },
+  tableHeader: { flexDirection: "row", paddingVertical: spacing.sm, paddingHorizontal: spacing.md, backgroundColor: colors.background, borderRadius: borderRadius.sm, marginBottom: spacing.xs },
+  th: { flex: 1, fontSize: 12, color: colors.textSecondary, fontWeight: "600" },
+  sessionRow: { flexDirection: "row", alignItems: "center", paddingVertical: spacing.md, paddingHorizontal: spacing.md, backgroundColor: colors.cardBackground, borderRadius: borderRadius.md, marginBottom: spacing.sm, ...shadows.card },
+  cell: { flex: 1, fontSize: 14, color: colors.textPrimary },
+  teamBadge: { backgroundColor: colors.accentYellow, paddingVertical: 4, paddingHorizontal: 10, borderRadius: borderRadius.full },
+  teamText: { fontSize: 12, fontWeight: "600", color: colors.textPrimary },
+  emptyWrap: { alignItems: "center", padding: spacing.xl },
+  empty: { textAlign: "center", color: colors.textSecondary, marginTop: spacing.md },
+  exportRow: { flexDirection: "row", gap: spacing.md, marginTop: spacing.lg },
+  exportBtn: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: spacing.sm, backgroundColor: colors.primaryBlue, paddingVertical: spacing.md, borderRadius: borderRadius.md },
+  exportBtnText: { fontSize: 14, fontWeight: "600", color: colors.white },
+  exportBtnDisabled: { opacity: 0.7 },
+  modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "center" },
+  lowStockModalBox: { backgroundColor: colors.cardBackground, borderRadius: borderRadius.lg, marginHorizontal: spacing.lg, maxHeight: "90%" },
+  lowStockModalHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: spacing.md, paddingVertical: spacing.md, borderBottomWidth: 1, borderBottomColor: colors.border },
+  lowStockModalTitle: { fontSize: 18, fontWeight: "700", color: colors.textPrimary },
+  lowStockList: { maxHeight: 320 },
+  lowStockRow: { paddingVertical: spacing.sm, paddingHorizontal: spacing.md, borderBottomWidth: 1, borderBottomColor: colors.border },
+  lowStockRowName: { fontSize: 15, fontWeight: "600", color: colors.textPrimary },
+  lowStockRowMeta: { fontSize: 12, color: colors.textSecondary, marginTop: 2 },
 });
