@@ -1,5 +1,5 @@
 /**
- * Global inventory state: products, categories, current category, offline preference, and DB/API helpers.
+ * Global inventory state: products, areas, current area, offline preference, and DB/API helpers.
  */
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -17,11 +17,16 @@ const InventoryContext = createContext(null);
 export function InventoryProvider({ children }) {
   const { isAuthenticated } = useAuth();
   const [products, setProducts] = useState([]);
-  const [categories, setCategories] = useState([]);
-  const [currentCategoryId, setCurrentCategoryId] = useState(USE_BACKEND_API ? null : 1);
-  const [currentCategoryName, setCurrentCategoryName] = useState(USE_BACKEND_API ? '' : 'Cocktailstation');
+  const [areas, setAreas] = useState([]);
+  const [currentAreaId, setCurrentAreaId] = useState(USE_BACKEND_API ? null : 1);
+  const [currentAreaName, setCurrentAreaName] = useState(USE_BACKEND_API ? '' : 'Cocktailstation');
   const [dbReady, setDbReady] = useState(false);
   const [offlineDownloadEnabled, setOfflineDownloadEnabledState] = useState(false);
+
+  // Backward compatibility aliases
+  const categories = areas;
+  const currentCategoryId = currentAreaId;
+  const currentCategoryName = currentAreaName;
 
   const loadDB = useCallback(async () => {
     try {
@@ -52,102 +57,104 @@ export function InventoryProvider({ children }) {
     AsyncStorage.setItem(OFFLINE_STORAGE_KEY, value ? 'true' : 'false').catch(() => {});
   }, []);
 
-  const refreshCategories = useCallback(async () => {
+  const refreshAreas = useCallback(async () => {
     if (!dbReady) return;
     if (USE_BACKEND_API && !isAuthenticated) return;
     try {
-      const list = await dataSource.getCategories();
-      setCategories(list);
-      const current = list.find((c) => c.id === currentCategoryId);
+      const list = await (dataSource.getAreas ? dataSource.getAreas() : dataSource.getCategories());
+      setAreas(list);
+      const current = list.find((a) => (a.id === currentAreaId || a.id === currentCategoryId));
       if (current) {
-        setCurrentCategoryName(current.name);
+        setCurrentAreaName(current.name);
       } else {
         if (list.length) {
-          setCurrentCategoryId(list[0].id);
-          setCurrentCategoryName(list[0].name);
+          setCurrentAreaId(list[0].id);
+          setCurrentAreaName(list[0].name);
         } else {
-          setCurrentCategoryId(null);
-          setCurrentCategoryName('');
+          setCurrentAreaId(null);
+          setCurrentAreaName('');
         }
       }
     } catch (e) {
-      console.warn('refreshCategories failed:', e?.message);
+      console.warn('refreshAreas failed:', e?.message);
     }
-  }, [dbReady, currentCategoryId, isAuthenticated]);
+  }, [dbReady, currentAreaId, currentCategoryId, isAuthenticated]);
 
-  const updateCategory = useCallback(
+  const updateArea = useCallback(
     async (id, name) => {
-      await dataSource.updateCategory(id, name);
-      await refreshCategories();
+      await (dataSource.updateArea ? dataSource.updateArea(id, name) : dataSource.updateCategory(id, name));
+      await refreshAreas();
     },
-    [refreshCategories]
+    [refreshAreas]
   );
 
-  const deleteCategory = useCallback(
+  const deleteArea = useCallback(
     async (id) => {
-      await dataSource.deleteCategory(id);
-      await refreshCategories();
+      await (dataSource.deleteArea ? dataSource.deleteArea(id) : dataSource.deleteCategory(id));
+      await refreshAreas();
     },
-    [refreshCategories]
+    [refreshAreas]
   );
 
-  const addCategory = useCallback(
+  const addArea = useCallback(
     async (name) => {
-      const id = await dataSource.addCategory(name || '');
-      await refreshCategories();
+      const id = await (dataSource.addArea ? dataSource.addArea(name || '') : dataSource.addCategory(name || ''));
+      await refreshAreas();
       return id;
     },
-    [refreshCategories]
+    [refreshAreas]
   );
 
   const refreshProducts = useCallback(async () => {
     if (!dbReady) return;
-    if (USE_BACKEND_API && currentCategoryId == null) return;
+    const targetId = currentAreaId || currentCategoryId;
+    if (USE_BACKEND_API && targetId == null) return;
     if (USE_BACKEND_API && !isAuthenticated) return;
     try {
-      const list = await dataSource.getProducts(currentCategoryId);
+      const list = await dataSource.getProducts(targetId);
       setProducts(list);
     } catch (e) {
       console.warn('refreshProducts failed:', e?.message);
     }
-  }, [dbReady, currentCategoryId, isAuthenticated]);
+  }, [dbReady, currentAreaId, currentCategoryId, isAuthenticated]);
 
   useEffect(() => {
     if (dbReady) {
-      refreshCategories();
+      refreshAreas();
     }
-  }, [dbReady, refreshCategories]);
+  }, [dbReady, refreshAreas]);
 
   useEffect(() => {
     if (dbReady) {
       refreshProducts();
     }
-  }, [dbReady, currentCategoryId, refreshProducts]);
+  }, [dbReady, currentAreaId, currentCategoryId, refreshProducts]);
 
   const addProduct = useCallback(
     async (product) => {
-      const categoryId = product.categoryId ?? currentCategoryId;
-      const id = await dataSource.addProduct({ ...product, categoryId });
-      if (categoryId !== currentCategoryId) {
-        setCurrentCategoryId(categoryId);
-        const cat = categories.find((c) => c.id === categoryId);
-        if (cat) setCurrentCategoryName(cat.name);
-        const list = await dataSource.getProducts(categoryId);
+      const areaId = product.areaId ?? product.categoryId ?? (currentAreaId || currentCategoryId);
+      const id = await dataSource.addProduct({ ...product, areaId });
+      const currentId = currentAreaId || currentCategoryId;
+      if (areaId !== currentId) {
+        setCurrentAreaId(areaId);
+        const area = areas.find((a) => a.id === areaId);
+        if (area) setCurrentAreaName(area.name);
+        const list = await dataSource.getProducts(areaId);
         setProducts(list);
       } else {
         await refreshProducts();
       }
       return id;
     },
-    [currentCategoryId, refreshProducts, categories]
+    [currentAreaId, currentCategoryId, refreshProducts, areas]
   );
 
   const addProducts = useCallback(
     async (items) => {
-      await dataSource.addProducts(items, currentCategoryId);
+      await dataSource.addProducts(items, (currentAreaId || currentCategoryId));
       await refreshProducts();
     },
-    [currentCategoryId, refreshProducts]
+    [currentAreaId, currentCategoryId, refreshProducts]
   );
 
   const updateProduct = useCallback(
@@ -185,9 +192,9 @@ export function InventoryProvider({ children }) {
   const searchProducts = useCallback(
     async (query) => {
       if (!dbReady) return [];
-      return dataSource.searchProducts(query, currentCategoryId);
+      return dataSource.searchProducts(query, (currentAreaId || currentCategoryId));
     },
-    [dbReady, currentCategoryId]
+    [dbReady, currentAreaId, currentCategoryId]
   );
 
   const getAllProductsForPriceScreen = useCallback(async () => {
@@ -196,18 +203,18 @@ export function InventoryProvider({ children }) {
   }, [dbReady]);
 
   const getReportStats = useCallback(
-    async (categoryId = undefined) => {
+    async (areaId = undefined) => {
       if (!dbReady) return { totalBottles: 0, totalValue: 0, lowStock: 0, products: [] };
       if (USE_BACKEND_API && !isAuthenticated) return { totalBottles: 0, totalValue: 0, lowStock: 0, products: [] };
       try {
-        const id = categoryId === undefined ? currentCategoryId : categoryId;
+        const id = areaId === undefined ? (currentAreaId || currentCategoryId) : areaId;
         return await dataSource.getReportStats(id);
       } catch (e) {
         console.warn('getReportStats failed:', e?.message);
         return { totalBottles: 0, totalValue: 0, lowStock: 0, products: [] };
       }
     },
-    [dbReady, currentCategoryId, isAuthenticated]
+    [dbReady, currentAreaId, currentCategoryId, isAuthenticated]
   );
 
   const getSessions = useCallback(async () => {
@@ -215,9 +222,9 @@ export function InventoryProvider({ children }) {
     return dataSource.getInventorySessions();
   }, [dbReady]);
 
-  const createSession = useCallback(async (categoryId, categoryName, team = '') => {
+  const createSession = useCallback(async (areaId, areaName, team = '') => {
     if (!dbReady) return null;
-    return dataSource.createInventorySession(categoryId, categoryName, team);
+    return dataSource.createInventorySession(areaId, areaName, team);
   }, [dbReady]);
 
   const addSessionItems = useCallback(async (sessionId, items) => {
@@ -228,18 +235,27 @@ export function InventoryProvider({ children }) {
   const value = {
     dbReady,
     products,
+    areas,
     categories,
+    currentAreaId,
+    currentAreaName,
     currentCategoryId,
     currentCategoryName,
-    setCurrentCategoryId,
-    setCurrentCategoryName,
+    setCurrentAreaId,
+    setCurrentAreaName,
+    setCurrentCategoryId: setCurrentAreaId,
+    setCurrentCategoryName: setCurrentAreaName,
     offlineDownloadEnabled,
     setOfflineDownloadEnabled,
     refreshProducts,
-    refreshCategories,
-    updateCategory,
-    deleteCategory,
-    addCategory,
+    refreshAreas,
+    refreshCategories: refreshAreas,
+    updateArea,
+    updateCategory: updateArea,
+    deleteArea,
+    deleteCategory: deleteArea,
+    addArea,
+    addCategory: addArea,
     addProduct,
     addProducts,
     updateProduct,
@@ -253,7 +269,7 @@ export function InventoryProvider({ children }) {
     createSession,
     addSessionItems,
     getProductById: dataSource.getProductById,
-    getProductsWithFillLevels: (categoryId) => dataSource.getProductsWithFillLevels(categoryId || currentCategoryId),
+    getProductsWithFillLevels: (areaId) => dataSource.getProductsWithFillLevels(areaId || currentAreaId || currentCategoryId),
   };
 
   return (

@@ -1,5 +1,5 @@
 /**
- * Full form to add a new product manually (name, volume, category, purchase price, image).
+ * Full form to add a new product manually (name, volume, area, category, purchase price, image).
  * On image pick, runs bottle detection (mock), crop-to-bounds, and resize to 249px height.
  */
 import React, { useState, useCallback, useEffect } from "react";
@@ -19,7 +19,6 @@ import {
   FlatList,
   Pressable,
   PermissionsAndroid,
-  Linking,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { NativeModules } from "react-native";
@@ -95,29 +94,28 @@ const resizeImageToExactHeight = async (
 };
 
 export default function AddNewProductScreen({ navigation }) {
-  const { addProduct, categories, currentCategoryId, dbReady } = useInventory();
+  const { addProduct, areas, currentAreaId, dbReady } = useInventory();
   const { t } = useLanguage();
   const [name, setName] = useState("");
   const [volume, setVolume] = useState("");
-  const [subCategory, setSubCategory] = useState("");
-  const [selectedCategoryId, setSelectedCategoryId] = useState(currentCategoryId);
-  const [categoryDropdownVisible, setCategoryDropdownVisible] = useState(false);
+  const [category, setCategory] = useState("");
+  const [selectedAreaId, setSelectedAreaId] = useState(currentAreaId);
+  const [areaDropdownVisible, setAreaDropdownVisible] = useState(false);
   const [price, setPrice] = useState("");
   const [imageUri, setImageUri] = useState(null);
   const [imageUrl, setImageUrl] = useState("");
   const [saving, setSaving] = useState(false);
   const [imageProcessing, setImageProcessing] = useState(false);
-  const [imageUploadStep, setImageUploadStep] = useState("");
   const [errors, setErrors] = useState({});
 
-  const selectedCategory = categories.find((c) => c.id === selectedCategoryId) || categories[0];
-  const selectedCategoryName = selectedCategory?.name ?? "";
+  const selectedArea = areas.find((a) => a.id === selectedAreaId) || areas[0];
+  const selectedAreaName = selectedArea?.name ?? "";
 
   useEffect(() => {
-    if (categories.length > 0 && !selectedCategoryId) {
-      setSelectedCategoryId(categories[0].id);
+    if (areas.length > 0 && !selectedAreaId) {
+      setSelectedAreaId(areas[0].id);
     }
-  }, [categories, selectedCategoryId]);
+  }, [areas, selectedAreaId]);
 
   const processPickedImage = useCallback(
     async (uri) => {
@@ -125,9 +123,7 @@ export default function AddNewProductScreen({ navigation }) {
       setImageUri(uri);
       setImageUrl("");
       try {
-        setImageUploadStep("detecting");
         await detectBottleInImage(uri);
-        setImageUploadStep("resizing");
         const finalUri = await resizeImageToExactHeight(uri, TARGET_BOTTLE_HEIGHT_PX);
         setImageUri(finalUri);
       } catch (err) {
@@ -135,7 +131,6 @@ export default function AddNewProductScreen({ navigation }) {
         Alert.alert(t("error") || "Error", t("imageProcessingFailed") || "Failed to process image.");
       } finally {
         setImageProcessing(false);
-        setImageUploadStep("");
       }
     },
     [t],
@@ -151,15 +146,15 @@ export default function AddNewProductScreen({ navigation }) {
       const check = await PermissionsAndroid.check(perm);
       if (check) return true;
       const result = await PermissionsAndroid.request(perm, {
-        title: "Allow photo access",
-        message: "Barlytics needs access to your photos to add product images.",
-        buttonNeutral: "Ask Me Later",
-        buttonNegative: "Cancel",
-        buttonPositive: "Allow",
+        title: t("permissionPhotosTitle") || "Allow photo access",
+        message: t("permissionPhotosMessage") || "Barlytics needs access to your photos to add product images.",
+        buttonNeutral: t("askLater") || "Ask Me Later",
+        buttonNegative: t("cancel") || "Cancel",
+        buttonPositive: t("allow") || "Allow",
       });
       return result === PermissionsAndroid.RESULTS.GRANTED;
     } catch { return false; }
-  }, []);
+  }, [t]);
 
   const handlePickImage = useCallback(async () => {
     const launchImageLibrary = RNImagePicker?.launchImageLibrary;
@@ -183,7 +178,7 @@ export default function AddNewProductScreen({ navigation }) {
   const validate = useCallback(() => {
     const next = {};
     if (!(name || "").trim()) next.name = t("productNameRequired");
-    if (!selectedCategoryId) next.category = "Please select a category";
+    if (!selectedAreaId) next.area = "Please select an area";
     
     if (volume !== "") {
       const vol = parseInt(volume, 10);
@@ -197,7 +192,7 @@ export default function AddNewProductScreen({ navigation }) {
     
     setErrors(next);
     return Object.keys(next).length === 0;
-  }, [name, volume, price, selectedCategoryId, t]);
+  }, [name, volume, price, selectedAreaId, t]);
 
   const handleSave = useCallback(async () => {
     if (!validate()) return;
@@ -206,10 +201,10 @@ export default function AddNewProductScreen({ navigation }) {
       await addProduct({
         name: name.trim(),
         volume: volume === "" ? 0 : parseInt(volume, 10),
-        subCategory: subCategory.trim() || undefined,
+        category: category.trim() || undefined,
         price: price === "" ? 0 : parseFloat((price || "0").replace(",", ".")),
         image: imageUri || imageUrl.trim() || "",
-        categoryId: selectedCategoryId,
+        areaId: selectedAreaId,
       });
       navigation.goBack();
     } catch (e) {
@@ -217,13 +212,13 @@ export default function AddNewProductScreen({ navigation }) {
     } finally {
       setSaving(false);
     }
-  }, [name, volume, subCategory, price, imageUri, imageUrl, selectedCategoryId, addProduct, navigation, validate]);
+  }, [name, volume, category, price, imageUri, imageUrl, selectedAreaId, addProduct, navigation, validate]);
 
-  const openCategoryDropdown = useCallback(() => setCategoryDropdownVisible(true), []);
-  const closeCategoryDropdown = useCallback(() => setCategoryDropdownVisible(false), []);
-  const selectCategory = useCallback((cat) => {
-    setSelectedCategoryId(cat.id);
-    setCategoryDropdownVisible(false);
+  const openAreaDropdown = useCallback(() => setAreaDropdownVisible(true), []);
+  const closeAreaDropdown = useCallback(() => setAreaDropdownVisible(false), []);
+  const selectArea = useCallback((area) => {
+    setSelectedAreaId(area.id);
+    setAreaDropdownVisible(false);
   }, []);
 
   if (!dbReady) {
@@ -247,7 +242,7 @@ export default function AddNewProductScreen({ navigation }) {
 
       <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === "ios" ? "padding" : undefined}>
         <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
-          <Text style={styles.areaHint}>{selectedCategoryName}</Text>
+          <Text style={styles.areaHint}>{selectedAreaName}</Text>
 
           <View style={styles.field}>
             <Text style={styles.label}>{t("productImage")}</Text>
@@ -301,41 +296,41 @@ export default function AddNewProductScreen({ navigation }) {
 
           <View style={styles.field}>
             <Text style={styles.label}>{t("area")}</Text>
-            <TouchableOpacity style={styles.dropdownTouch} onPress={openCategoryDropdown}>
-              <Text style={[styles.dropdownText, (!selectedCategoryName || errors.category) && styles.dropdownPlaceholder]}>
-                {selectedCategoryName || t("categoryNamePlaceholder")}
+            <TouchableOpacity style={styles.dropdownTouch} onPress={openAreaDropdown}>
+              <Text style={[styles.dropdownText, (!selectedAreaName || errors.area) && styles.dropdownPlaceholder]}>
+                {selectedAreaName || t("areaNamePlaceholder")}
               </Text>
               <Icon name={Icons.keyboardArrowDown} size={24} color={colors.textSecondary} />
             </TouchableOpacity>
-            <Modal visible={categoryDropdownVisible} transparent animationType="fade" onRequestClose={closeCategoryDropdown}>
-              <Pressable style={styles.modalOverlay} onPress={closeCategoryDropdown}>
+            <Modal visible={areaDropdownVisible} transparent animationType="fade" onRequestClose={closeAreaDropdown}>
+              <Pressable style={styles.modalOverlay} onPress={closeAreaDropdown}>
                 <Pressable style={styles.dropdownModal} onPress={() => {}}>
                   <Text style={styles.dropdownModalTitle}>{t("area")}</Text>
                   <FlatList
-                    data={categories}
+                    data={areas}
                     keyExtractor={(item) => String(item.id)}
                     renderItem={({ item }) => (
                       <TouchableOpacity
-                        style={[styles.dropdownItem, item.id === selectedCategoryId && styles.dropdownItemSelected]}
-                        onPress={() => selectCategory(item)}
+                        style={[styles.dropdownItem, item.id === selectedAreaId && styles.dropdownItemSelected]}
+                        onPress={() => selectArea(item)}
                       >
                         <Text style={styles.dropdownItemText}>{item.name}</Text>
-                        {item.id === selectedCategoryId ? <Icon name={Icons.check} size={22} color={colors.primaryBlue} /> : null}
+                        {item.id === selectedAreaId ? <Icon name={Icons.check} size={22} color={colors.primaryBlue} /> : null}
                       </TouchableOpacity>
                     )}
                   />
                 </Pressable>
               </Pressable>
             </Modal>
-            {errors.category ? <Text style={styles.errorText}>{errors.category}</Text> : null}
+            {errors.area ? <Text style={styles.errorText}>{errors.area}</Text> : null}
           </View>
 
           <View style={styles.field}>
             <Text style={styles.label}>{t("category")}</Text>
             <TextInput
               style={styles.input}
-              value={subCategory}
-              onChangeText={setSubCategory}
+              value={category}
+              onChangeText={setCategory}
               placeholder={t("categoryPlaceholder")}
               placeholderTextColor={colors.textSecondary}
             />
@@ -391,7 +386,6 @@ const styles = StyleSheet.create({
   input: { backgroundColor: colors.cardBackground, borderWidth: 1, borderColor: colors.border, borderRadius: borderRadius.md, paddingHorizontal: spacing.md, paddingVertical: spacing.md, fontSize: 16, color: colors.textPrimary },
   inputError: { borderColor: colors.danger },
   errorText: { fontSize: 12, color: colors.danger, marginTop: spacing.xs },
-  imageRow: { marginTop: spacing.xs },
   imageTouchable: { alignSelf: "flex-start" },
   imagePlaceholder: { width: IMAGE_PREVIEW_SIZE, height: IMAGE_PREVIEW_SIZE, backgroundColor: colors.cardBackground, borderWidth: 1, borderColor: colors.border, borderRadius: borderRadius.md, borderStyle: "dashed", alignItems: "center", justifyContent: "center" },
   imagePlaceholderText: { marginTop: spacing.xs, fontSize: 13, color: colors.textSecondary },

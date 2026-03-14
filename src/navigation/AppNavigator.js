@@ -1,6 +1,6 @@
 /**
  * Bar Inventory app navigation: Auth stack when unauthenticated,
- * Bottom Tabs (Categories, Purchase prices, Reports) when authenticated.
+ * Bottom Tabs (Areas, Purchase prices, Reports) when authenticated.
  */
 import React from 'react';
 import { View, ActivityIndicator, StyleSheet, Platform } from 'react-native';
@@ -13,7 +13,7 @@ import { useAuth } from '../context/AuthContext';
 import { USE_BACKEND_API } from '../config/useApi';
 import LoginScreen from '../screens/LoginScreen';
 import SignUpScreen from '../screens/SignUpScreen';
-import CategoriesScreen from '../screens/CategoriesScreen';
+import AreasScreen from '../screens/AreasScreen';
 import ProductListScreen from '../screens/ProductListScreen';
 import AddProductScreen from '../screens/AddProductScreen';
 import AddNewProductScreen from '../screens/AddNewProductScreen';
@@ -30,14 +30,14 @@ const Tab = createBottomTabNavigator();
 
 const TAB_ICON_SIZE = 24;
 
-function CategoriesStack() {
+function AreasStack() {
   return (
     <Stack.Navigator
       screenOptions={{
         headerShown: false,
       }}
     >
-      <Stack.Screen name="Categories" component={CategoriesScreen} />
+      <Stack.Screen name="Areas" component={AreasScreen} />
       <Stack.Screen name="Settings" component={SettingsScreen} />
       <Stack.Screen name="ProductList" component={ProductListScreen} />
       <Stack.Screen name="AddProduct" component={AddProductScreen} />
@@ -88,10 +88,10 @@ function TabNavigator() {
       }}
     >
       <Tab.Screen
-        name="TabCategories"
-        component={CategoriesStack}
+        name="TabAreas"
+        component={AreasStack}
         options={{
-          tabBarLabel: t('tabAreas'), // t('tabAreas') is now "Categories"
+          tabBarLabel: t('tabAreas') || 'Areas',
           tabBarIcon: ({ color }) => (
             <Icon name={Icons.description} size={TAB_ICON_SIZE} color={color} />
           ),
