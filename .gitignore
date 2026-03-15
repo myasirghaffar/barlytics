@@ -29,14 +29,10 @@ ios/Pods/
 **/DerivedData/
 
 ### Environment files
-.env
-.env.*
-.env.local
 
 ### IDE and OS
 .DS_Store
 .idea/
-.vscode/
 *.swp
 
 ### Gradle and keystore
@@ -50,3 +46,4 @@ local.properties
 coverage/
 jest-coverage/
 reports/
+config.bat
