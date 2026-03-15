@@ -13,14 +13,16 @@ import {
   Platform,
   Modal,
   Alert,
-  Share,
 } from "react-native";
+import Share from "react-native-share";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Icon, Icons } from "../assets/icons";
 import { useInventory } from "../context/InventoryContext";
 import { useLanguage } from "../context/LanguageContext";
 import { colors, spacing, borderRadius, shadows } from "../theme/colors";
 import RNFS from "react-native-fs";
+import { generatePDF } from "react-native-html-to-pdf";
+
 
 export default function ReportsScreen({ navigation }) {
   const { getReportStats, getSessions, dbReady, categories } = useInventory();
@@ -74,98 +76,181 @@ export default function ReportsScreen({ navigation }) {
 
   const shareFile = useCallback(async (filePath, mimeType, title) => {
     try {
-      await Share.share({
-        url: Platform.OS === "ios" ? filePath : `file://${filePath}`,
-        type: mimeType,
+      const shareOptions = {
         title,
-      });
+        url: Platform.OS === "android" ? `file://${filePath}` : filePath,
+        type: mimeType,
+        failOnCancel: false,
+        saveToFiles: true, // Enables "Save to Files" on iOS
+      };
+      await Share.open(shareOptions);
     } catch (e) {
-      if (e.message?.includes("User did not share")) return;
+      if (e.message?.includes("User did not share") || e.message?.includes("User cancelled")) return;
       Alert.alert(t("error") || "Error", e?.message || "Share failed");
     }
   }, [t]);
 
   const handleExportPdf = useCallback(async () => {
+
     setExportingPdf(true);
     try {
-      let generatePDF;
-      try {
-        generatePDF = require("react-native-html-to-pdf").generatePDF;
-      } catch (_) {
-        Alert.alert(t("error") || "Error", "PDF export is not available. Rebuild the app.");
-        return;
-      }
-      const sessionsRows = sessions
-        .map(
-          (s) =>
-            `<tr><td>${(s.categoryName || s.areaName || "—").replace(/</g, "&lt;")}</td><td>${formatDate(s.date || s.createdAt)}</td><td>${(s.team || "—").replace(/</g, "&lt;")}</td></tr>`
-        )
+      const productsRows = (stats.products || [])
+        .map((p) => {
+          const area = categories.find((a) => a.id === p.categoryId);
+          return `<tr>
+            <td>${(p.name || "—").replace(/</g, "&lt;")}</td>
+            <td>${(area?.name || "—").replace(/</g, "&lt;")}</td>
+            <td>${p.volume || 0}</td>
+            <td>${formatCurrency(p.price || 0)}</td>
+            <td>${p.fillLevel ?? 100}%</td>
+            <td>${p.fullBottles || 0}</td>
+          </tr>`;
+        })
         .join("");
+
       const html = `
 <!DOCTYPE html>
-<html><head><meta charset="utf-8"><style>
-body{font-family:system-ui;padding:16px;color:#111;}
-h1{font-size:20px;margin-bottom:16px;}
-table{width:100%;border-collapse:collapse;}
-th,td{border:1px solid #e5e7eb;padding:8px;text-align:left;}
-th{background:#f4f6f8;}
-.stats{display:flex;gap:12px;margin-bottom:20px;}
-.card{flex:1;background:#f4f6f8;padding:12px;border-radius:8px;}
-.card strong{display:block;font-size:18px;}
-</style></head><body>
-<h1>${(t("reports") || "Reports").replace(/</g, "&lt;")}</h1>
-<div class="stats">
-<div class="card">${t("totalBottles") || "Total bottles"}<strong>${stats.totalBottles}</strong></div>
-<div class="card">${t("stockValue") || "Stock value"}<strong>${formatCurrency(stats.totalValue)}</strong></div>
-<div class="card">${t("lowStock") || "Low stock"}<strong>${stats.lowStock}</strong></div>
-</div>
-<table><thead><tr><th>${t("area") || "Category"}</th><th>${t("date") || "Date"}</th><th>${t("team") || "Team"}</th></tr></thead>
-<tbody>${sessionsRows || "<tr><td colspan=\"3\">—</td></tr>"}</tbody></table>
-</body></html>`;
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    body { font-family: 'Helvetica', 'Arial', sans-serif; padding: 20px; color: #333; }
+    h1 { color: #1a365d; font-size: 24px; margin-bottom: 20px; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px; }
+    h2 { color: #2d3748; font-size: 18px; margin-top: 30px; margin-bottom: 15px; }
+    .stats-container { display: flex; flex-wrap: wrap; gap: 20px; margin-bottom: 30px; }
+    .stat-card { flex: 1; min-width: 150px; background: #f8fafc; border: 1px solid #e2e8f0; padding: 15px; border-radius: 8px; text-align: center; }
+    .stat-label { display: block; font-size: 12px; color: #64748b; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.05em; }
+    .stat-value { font-size: 20px; font-weight: bold; color: #1e293b; }
+    table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 12px; }
+    th { background: #f1f5f9; color: #475569; font-weight: 600; text-align: left; padding: 12px 8px; border-bottom: 2px solid #e2e8f0; }
+    td { padding: 10px 8px; border-bottom: 1px solid #f1f5f9; }
+    tr:nth-child(even) { background-color: #f8fafc; }
+    .footer { margin-top: 40px; font-size: 10px; color: #94a3b8; text-align: center; border-top: 1px solid #e2e8f0; padding-top: 10px; }
+  </style>
+</head>
+<body>
+  <h1>${(t("reports") || "Reports").replace(/</g, "&lt;")}</h1>
+  
+  <div class="stats-container">
+    <div class="stat-card">
+      <span class="stat-label">${t("totalBottles") || "Total bottles"}</span>
+      <span class="stat-value">${stats.totalBottles}</span>
+    </div>
+    <div class="stat-card">
+      <span class="stat-label">${t("stockValue") || "Stock value"}</span>
+      <span class="stat-value">${formatCurrency(stats.totalValue)}</span>
+    </div>
+    <div class="stat-card">
+      <span class="stat-label">${t("lowStock") || "Low stock"}</span>
+      <span class="stat-value" style="color: ${stats.lowStock > 0 ? "#ef4444" : "#1e293b"}">${stats.lowStock}</span>
+    </div>
+  </div>
+
+  <h2>${t("totalBottles") || "Total bottles"} Details</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>${t("productName") || "Product"}</th>
+        <th>${t("area") || "Category"}</th>
+        <th>${t("volumeMl") || "Volume (ml)"}</th>
+        <th>${t("priceEuro") || "Price"}</th>
+        <th>${t("fillLevel") || "Fill"}</th>
+        <th>${t("fullBottles") || "Full"}</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${productsRows || '<tr><td colspan="6" style="text-align:center;">No products data</td></tr>'}
+    </tbody>
+  </table>
+
+  <div class="footer">
+    Generated by Barlytics on ${new Date().toLocaleString()}
+  </div>
+</body>
+</html>`;
+
       const result = await generatePDF({
         html,
         fileName: `barlytics-report-${Date.now()}`,
+        base64: false,
       });
+
       const path = result?.filePath;
-      if (path) await shareFile(Platform.OS === "ios" ? path : `file://${path}`, "application/pdf", t("exportPdf") || "Export PDF");
+      if (path) {
+        const platformPath = Platform.OS === "android" ? `file://${path}` : path;
+        await shareFile(platformPath, "application/pdf", t("exportPdf") || "Export PDF");
+      }
     } catch (e) {
+      console.error("PDF Export Error:", e);
       Alert.alert(t("error") || "Error", e?.message || "PDF export failed.");
     } finally {
       setExportingPdf(false);
     }
-  }, [stats, sessions, formatDate, formatCurrency, t, shareFile]);
+  }, [stats, categories, formatCurrency, t, shareFile]);
 
   const handleExportExcel = useCallback(async () => {
     setExportingExcel(true);
     try {
       const XLSX = require("xlsx");
       const wb = XLSX.utils.book_new();
+
+      // Summary Sheet
       const summaryData = [
-        [t("reports") || "Reports", ""],
-        [t("totalBottles") || "Total bottles", stats.totalBottles],
-        [t("stockValue") || "Stock value", formatCurrency(stats.totalValue)],
-        [t("lowStock") || "Low stock", stats.lowStock],
+        [t("reports") || "Reports"],
         [],
-        [t("area") || "Category", t("date") || "Date", t("team") || "Team"],
-        ...sessions.map((s) => [
-          s.categoryName || s.areaName || "—",
-          formatDate(s.date || s.createdAt),
-          s.team || "—",
-        ]),
+        [t("totalBottles") || "Total bottles", stats.totalBottles],
+        [t("stockValue") || "Stock value", stats.totalValue],
+        [t("lowStock") || "Low stock", stats.lowStock],
+        [t("date") || "Date", formatDate(new Date())],
       ];
-      const ws = XLSX.utils.aoa_to_sheet(summaryData);
-      XLSX.utils.book_append_sheet(wb, ws, t("reports") || "Report");
+      const wsSummary = XLSX.utils.aoa_to_sheet(summaryData);
+      XLSX.utils.book_append_sheet(wb, wsSummary, "Summary");
+
+      // Products Sheet
+      const productsData = [
+        [
+          t("productName") || "Product",
+          t("area") || "Category",
+          t("volumeMl") || "Volume (ml)",
+          t("priceEuro") || "Price",
+          t("fillLevel") || "Fill (%)",
+          t("fullBottles") || "Full Bottles",
+        ],
+        ...(stats.products || []).map((p) => {
+          const area = categories.find((a) => a.id === p.categoryId);
+          return [
+            p.name || "—",
+            area?.name || "—",
+            p.volume || 0,
+            p.price || 0,
+            p.fillLevel ?? 100,
+            p.fullBottles || 0,
+          ];
+        }),
+      ];
+      const wsProducts = XLSX.utils.aoa_to_sheet(productsData);
+      XLSX.utils.book_append_sheet(wb, wsProducts, "Products");
+
       const wbout = XLSX.write(wb, { type: "base64", bookType: "xlsx" });
-      const dir = RNFS.CacheDirectoryPath || RNFS.DocumentDirectoryPath;
+      const dir = RNFS.CachesDirectoryPath || RNFS.DocumentDirectoryPath;
       const filePath = `${dir}/barlytics-report-${Date.now()}.xlsx`;
+
       await RNFS.writeFile(filePath, wbout, "base64");
-      await shareFile(filePath, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", t("exportExcel") || "Export Excel");
+
+      const platformPath = Platform.OS === "android" ? `file://${filePath}` : filePath;
+      await shareFile(
+        platformPath,
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        t("exportExcel") || "Export Excel"
+      );
     } catch (e) {
+      console.error("Excel Export Error:", e);
       Alert.alert(t("error") || "Error", e?.message || "Excel export failed.");
     } finally {
       setExportingExcel(false);
     }
-  }, [stats, sessions, formatDate, formatCurrency, t, shareFile]);
+  }, [stats, categories, formatDate, t, shareFile]);
+
 
   if (!dbReady || loading) {
     return (
