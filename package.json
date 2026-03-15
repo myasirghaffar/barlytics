@@ -5,7 +5,7 @@
   "scripts": {
     "android": "react-native run-android",
     "android:clean": "cd android && rm -rf app/.cxx app/build .gradle build && ./gradlew clean",
-    "android:release": "cd android && rm -rf app/.cxx app/build .gradle build && ./gradlew assembleRelease",
+    "android:release": "cd android && ./gradlew clean && cd .. && npx react-native bundle --platform android --dev false --entry-file index.js --bundle-output android/app/src/main/assets/index.android.bundle && cd android && ./gradlew assembleRelease",
     "ios": "react-native run-ios",
     "lint": "eslint .",
     "postinstall": "patch-package",
